@@ -46,6 +46,12 @@ GOVERNANCE_DIR="${NODE_HOME}"   # governance サブディレクトリは使わ�
 COLDKEYS_DIR="${COLDKEYS_DIR:-${HOME}/cold-keys}"
 NETWORK="${NETWORK:-${NETWORK_IDENTIFIER:---mainnet}}"
 
+# --- 言語設定 (i18n) ----------------------------------------------------------
+# 表示言語（隠し機能・実験的）。CTOOL_LANG=en で英語表示（現状メインメニューのみ対応）。
+CTOOL_LANG="${CTOOL_LANG:-ja}"
+# t "日本語" "English" : 現在の言語に応じて文字列を返す
+t() { [[ "$CTOOL_LANG" == "en" ]] && printf '%s' "$2" || printf '%s' "$1"; }
+
 # --- カラー定義 ---------------------------------------------------------------
 NC='\e[0m'
 FG_YELLOW='\e[33m'
@@ -1893,14 +1899,14 @@ main_menu() {
     show_welcome
     show_header
 
-    menu_select "メインメニュー" \
-      "[1]  プール資金の管理" \
-      "[2]  プール設定の確認" \
-      "[3]  KES の更新をする" \
-      "[4]  プール情報を更新する" \
-      "[5]  DRep へ委任をする" \
-      "[6]  ガバナンス投票をする" \
-      "[q]  終了"
+    menu_select "$(t "メインメニュー" "Main Menu")" \
+      "[1]  $(t "プール資金の管理"     "Manage pool funds")" \
+      "[2]  $(t "プール設定の確認"     "Check pool config")" \
+      "[3]  $(t "KES の更新をする"      "Rotate KES key")" \
+      "[4]  $(t "プール情報を更新する"  "Update pool info")" \
+      "[5]  $(t "DRep へ委任をする"     "Delegate to DRep")" \
+      "[6]  $(t "ガバナンス投票をする"  "Governance vote")" \
+      "[q]  $(t "終了"                 "Quit")"
     local choice=$?
 
     case $choice in
@@ -1912,7 +1918,7 @@ main_menu() {
       5) menu_governance_vote ;;
       6|99)
         clear
-        echo -e "\n  ${FG_YELLOW}☕️  またのご利用をお待ちしています。${NC}\n"
+        echo -e "\n  ${FG_YELLOW}☕️  $(t "またのご利用をお待ちしています。" "Thanks for using ctool. See you!")${NC}\n"
         exit 0
         ;;
     esac

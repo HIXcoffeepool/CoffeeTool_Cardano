@@ -4,7 +4,7 @@
 
 [English](#english) ・ [日本語](#日本語)
 
-Targets `cardano-cli 11.0.0.0` (Conway era). Every signing step is shown as a command to run on your **offline (air-gapped) machine**; unsigned/signed transactions move between the block producer and the air-gap by **copy-pasting `cat > file << EOF` heredocs** — no USB required.
+Targets `cardano-cli 11.0.0.0` (Conway era). Every signing step is shown as a command to run on your **offline (air-gapped) machine**; unsigned/signed transactions move between the block producer and the air-gap by **copy-pasting `cat > file << EOF` heredocs**.
 
 > ⚠️ Provided **as-is** under the MIT License. It handles **mainnet funds and keys** — always test on a testnet or with small amounts first, and review every command before you run it.
 
@@ -14,7 +14,7 @@ Targets `cardano-cli 11.0.0.0` (Conway era). Every signing step is shown as a co
 
 ### Features
 - **Cold keys never touch the hot environment.** Signing commands are displayed for you to run on the air-gapped machine.
-- **Copy-paste round-trip workflow.** `tx.raw` (BP → air-gap) and `tx.signed` / `vote.json` (air-gap → BP) transfer via heredoc — no USB. Every operation uses the same `tx.raw` / `tx.signed` names (one operation at a time), so files are never mixed up.
+- **Copy-paste round-trip workflow.** `tx.raw` (BP → air-gap) and `tx.signed` / `vote.json` (air-gap → BP) transfer via heredoc. Every operation uses the same `tx.raw` / `tx.signed` names (one operation at a time), so files are never mixed up.
 - **Pre-submit safety checks.** Verifies the signed tx is actually witnessed and that its inputs are still live before submitting; prints the Tx ID on success.
 - **Operations:** pool funds (send / withdraw rewards), pool config check, KES rotation, pool info update, DRep delegation, governance voting.
 
@@ -42,7 +42,7 @@ Cardano ステークプールオペレーター（SPO）向けの運用補助ツ
 ## 特徴
 
 - **コールドキーは一切ホット環境に置かない設計** — 署名が必要な操作は、エアギャップで実行するコマンドをそのまま画面に表示します。
-- **コピペで完結する往復ワークフロー** — 未署名tx（`tx.raw`）はBP→エアギャップ、署名済みファイル（`tx.signed` / 投票の `vote.json`）はエアギャップ→BP を、いずれも `cat > file << EOF` 形式のヒアドキュメントでコピペ転送できます（USB不要）。全操作で `tx.raw` / `tx.signed` の名前に統一されており、ファイルを取り違えません（1操作ずつ完結）。
+- **コピペで完結する往復ワークフロー** — 未署名tx（`tx.raw`）はBP→エアギャップ、署名済みファイル（`tx.signed` / 投票の `vote.json`）はエアギャップ→BP を、いずれも `cat > file << EOF` 形式のヒアドキュメントでコピペ転送できます。全操作で `tx.raw` / `tx.signed` の名前に統一されており、ファイルを取り違えません（1操作ずつ完結）。
 - **送信前の安全チェック** — 送信直前に署名済みtxの入力が現在のライブUTxOに存在するか検証し、古い未署名txに署名していた場合は送信前に停止します。
 - **主な機能**: プール資金の管理 / プール設定の確認 / KESの更新 / プール情報の更新 / DRepへの委任 / ガバナンス投票
 
