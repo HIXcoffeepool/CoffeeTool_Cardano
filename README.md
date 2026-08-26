@@ -1,10 +1,41 @@
 # CoffeeTool (ctool) ☕️
 
-Cardano ステークプールオペレーター（SPO）向けの運用補助ツール。日本語UIで、**エアギャップ（コールド環境）を前提としたコールドキー運用**に対応しています。
+**A Cardano stake pool operations tool (Japanese UI) built around air-gapped cold-key signing.**
 
-`cardano-cli 11.0.0.0`（Conway era）対応。
+[English](#english) ・ [日本語](#日本語)
 
-> ⚠️ **免責**: 本ツールは無保証で提供されます（MIT ライセンス）。メインネットの資金・鍵を扱うため、**必ずテストネットや少額で挙動を確認してから**本番運用してください。コマンドの内容を理解した上で自己責任でご利用ください。
+Targets `cardano-cli 11.0.0.0` (Conway era). Every signing step is shown as a command to run on your **offline (air-gapped) machine**; unsigned/signed transactions move between the block producer and the air-gap by **copy-pasting `cat > file << EOF` heredocs** — no USB required.
+
+> ⚠️ Provided **as-is** under the MIT License. It handles **mainnet funds and keys** — always test on a testnet or with small amounts first, and review every command before you run it.
+
+---
+
+## English
+
+### Features
+- **Cold keys never touch the hot environment.** Signing commands are displayed for you to run on the air-gapped machine.
+- **Copy-paste round-trip workflow.** `tx.raw` (BP → air-gap) and `tx.signed` / `vote.json` (air-gap → BP) transfer via heredoc — no USB. Every operation uses the same `tx.raw` / `tx.signed` names (one operation at a time), so files are never mixed up.
+- **Pre-submit safety checks.** Verifies the signed tx is actually witnessed and that its inputs are still live before submitting; prints the Tx ID on success.
+- **Operations:** pool funds (send / withdraw rewards), pool config check, KES rotation, pool info update, DRep delegation, governance voting.
+
+### Quick start
+```bash
+git clone git@github.com:HIXcoffeepool/ctool.git
+cd ctool
+cp env.sample env      # edit NODE_HOME / COLDKEYS_DIR / NETWORK ...
+chmod +x ctool.sh
+./ctool.sh
+```
+`env` is your personal config and is git-ignored — copy `env.sample` to `env` and edit it. Full UI/behavior spec is in [FUNCTIONS.md](./FUNCTIONS.md) (Japanese).
+
+### Requirements
+Runs on the block-producing node; cold keys stay in `~/cold-keys/` on the air-gapped machine; `cardano-cli` and `jq` available; `CARDANO_NODE_SOCKET_PATH` pointing at a fully synced node.
+
+---
+
+## 日本語
+
+Cardano ステークプールオペレーター（SPO）向けの運用補助ツール。日本語UIで、**エアギャップ（コールド環境）を前提としたコールドキー運用**に対応しています。`cardano-cli 11.0.0.0`（Conway era）対応。
 
 ---
 
