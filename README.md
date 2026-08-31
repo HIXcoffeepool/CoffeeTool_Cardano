@@ -17,6 +17,7 @@ Targets `cardano-cli 11.0.0.0` (Conway era). Every signing step is shown as a co
 - **Copy-paste round-trip workflow.** `tx.raw` (BP → air-gap) and `tx.signed` / `vote.json` (air-gap → BP) transfer via heredoc. Every operation uses the same `tx.raw` / `tx.signed` names (one operation at a time), so files are never mixed up.
 - **Pre-submit safety checks.** Verifies the signed tx is actually witnessed and that its inputs are still live before submitting; prints the Tx ID on success.
 - **Operations:** pool funds (send / withdraw rewards), pool config check, KES rotation, pool info update, DRep delegation, governance voting.
+- **Bilingual UI (日本語 / English).** Default from `CTOOL_LANG=ja|en` in `env`, toggle any time with `[L]` on the main menu.
 
 ### Quick start
 ```bash
@@ -35,7 +36,7 @@ Runs on the block-producing node; cold keys stay in `~/cold-keys/` on the air-ga
 
 ## 日本語
 
-Cardano ステークプールオペレーター（SPO）向けの運用補助ツール。日本語UIで、**エアギャップ（コールド環境）を前提としたコールドキー運用**に対応しています。`cardano-cli 11.0.0.0`（Conway era）対応。
+Cardano ステークプールオペレーター（SPO）向けの運用補助ツール。**エアギャップ（コールド環境）を前提としたコールドキー運用**に対応しています。`cardano-cli 11.0.0.0`（Conway era）対応。日本語／英語の両UIに対応（`env` の `CTOOL_LANG=ja|en` で既定を指定、メニュー `[L]` で随時切替）。
 
 ---
 

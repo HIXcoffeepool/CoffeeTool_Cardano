@@ -3,14 +3,21 @@
 #  CoffeeTool (ctool) — Cardano SPO 運用ツール
 #  Copyright (c) 2026 CoffeePool
 #  License: MIT
-#  Version: 1.6.0
+#  Version: 1.7.0
 #  cardano-cli 11.0.0.0 対応
 # =============================================================================
 
 set -uo pipefail
 
 # --- バージョン ---------------------------------------------------------------
-TOOL_VERSION="1.6.0"
+TOOL_VERSION="1.7.0"
+
+# --- 言語設定 (i18n) ----------------------------------------------------------
+# 表示言語 ja|en。env の CTOOL_LANG で既定を指定、メニュー [L] で実行中に切替。
+# env より前に定義して初期エラーメッセージも切替対象にする。
+CTOOL_LANG="${CTOOL_LANG:-ja}"
+# t "日本語" "English" : 現在の言語に応じて文字列を返す
+t() { [[ "$CTOOL_LANG" == "en" ]] && printf '%s' "$2" || printf '%s' "$1"; }
 
 # --- env ファイルの読み込み ---------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "$0")"; pwd)"
@@ -26,16 +33,16 @@ if [[ -f "$ENV_FILE" ]]; then
   eval "${_saved_opts}" 2>/dev/null  # source 前の状態に戻す
   set -uo pipefail                   # ctool 必須オプションを再設定
   if [[ $_env_rc -eq 2 ]]; then
-    echo -e "\e[31m❌ cardano-node が起動していないか、ソケットファイルが存在しません。\e[0m"
-    echo -e "   ノードを起動してから ctool を実行してください。"
+    echo -e "\e[31m❌ $(t "cardano-node が起動していないか、ソケットファイルが存在しません。" "cardano-node is not running, or the socket file is missing.")\e[0m"
+    echo -e "   $(t "ノードを起動してから ctool を実行してください。" "Start the node before running ctool.")"
     exit 1
   elif [[ $_env_rc -ne 0 ]]; then
-    echo -e "\e[31m❌ env ファイルの読み込みに失敗しました（rc=${_env_rc}）。\e[0m"
+    echo -e "\e[31m❌ $(t "env ファイルの読み込みに失敗しました（rc=${_env_rc}）。" "Failed to load the env file (rc=${_env_rc}).")\e[0m"
     exit 1
   fi
 else
-  echo -e "\e[31m❌ env ファイルが見つかりません: ${ENV_FILE}\e[0m"
-  echo -e "   env.sample をコピーして env を作成してください。"
+  echo -e "\e[31m❌ $(t "env ファイルが見つかりません" "env file not found"): ${ENV_FILE}\e[0m"
+  echo -e "   $(t "env.sample をコピーして env を作成してください。" "Copy env.sample to env and edit it.")"
   exit 1
 fi
 
@@ -45,12 +52,6 @@ NODE_HOME="${NODE_HOME:-${CNODE_HOME:-}}"
 GOVERNANCE_DIR="${NODE_HOME}"   # governance サブディレクトリは使わず NODE_HOME 直下に統一
 COLDKEYS_DIR="${COLDKEYS_DIR:-${HOME}/cold-keys}"
 NETWORK="${NETWORK:-${NETWORK_IDENTIFIER:---mainnet}}"
-
-# --- 言語設定 (i18n) ----------------------------------------------------------
-# 表示言語（隠し機能・実験的）。CTOOL_LANG=en で英語表示（現状メインメニューのみ対応）。
-CTOOL_LANG="${CTOOL_LANG:-ja}"
-# t "日本語" "English" : 現在の言語に応じて文字列を返す
-t() { [[ "$CTOOL_LANG" == "en" ]] && printf '%s' "$2" || printf '%s' "$1"; }
 
 # --- カラー定義 ---------------------------------------------------------------
 NC='\e[0m'
@@ -65,7 +66,7 @@ FG_ORANGE='\e[33m'
 
 # --- 前提チェック -------------------------------------------------------------
 if [[ -z "${NODE_HOME:-}" ]]; then
-  echo -e "\e[31m❌ NODE_HOME が設定されていません。env ファイルを確認してください。\e[0m"
+  echo -e "\e[31m❌ $(t "NODE_HOME が設定されていません。env ファイルを確認してください。" "NODE_HOME is not set. Check your env file.")\e[0m"
   exit 1
 fi
 
@@ -103,9 +104,9 @@ show_header() {
   db_size=$(du -sh "${NODE_HOME}/db" 2>/dev/null | awk '{print $1}' || echo "N/A")
   disk_free=$(df -h "${NODE_HOME}" 2>/dev/null | tail -1 | awk '{print $4}' || echo "N/A")
 
-  echo -e "  ${FG_YELLOW}サーバー : BP  │  ネットワーク : mainnet${NC}"
-  echo -e "  ${FG_YELLOW}Era      : ${era}  │  ノード : ${node_ver}${NC}"
-  echo -e "  ${FG_YELLOW}CLI      : ${cli_ver}  │  DB : ${db_size}  │  空き : ${disk_free}${NC}"
+  echo -e "  ${FG_YELLOW}$(t "サーバー" "Server ") : BP  │  $(t "ネットワーク" "Network") : mainnet${NC}"
+  echo -e "  ${FG_YELLOW}Era      : ${era}  │  $(t "ノード" "Node") : ${node_ver}${NC}"
+  echo -e "  ${FG_YELLOW}CLI      : ${cli_ver}  │  DB : ${db_size}  │  $(t "空き" "Free") : ${disk_free}${NC}"
   echo -e "${SEP}"
 }
 
@@ -144,9 +145,9 @@ show_txraw() {
   local rel="${1:-tx.raw}"
   local txraw_file="${NODE_HOME}/${rel}"
   local base="${rel##*/}"   # エアギャップへは bare なファイル名で渡す
-  [[ ! -f "$txraw_file" ]] && { err "${rel} が見つかりません"; return 1; }
+  [[ ! -f "$txraw_file" ]] && { err "$(t "${rel} が見つかりません" "${rel} not found")"; return 1; }
   echo
-  echo -e "  ${FG_CYAN}── ${base} をエアギャップに貼り付け（下記を丸ごとコピー）${NC}"
+  echo -e "  ${FG_CYAN}── $(t "${base} をエアギャップに貼り付け（下記を丸ごとコピー）" "Paste ${base} on the air-gap (copy the whole block below)")${NC}"
   echo -e "${SEP}"
   # ヒアドキュメント形式。終端 EOF は行頭でないと終了しないため字下げしない。
   echo "cat > ${base} << EOF"
@@ -163,20 +164,20 @@ paste_signed_file() {
   local name; name=$(basename "$dest")
   mkdir -p "$(dirname "$dest")"
   echo
-  echo -e "  ${FG_CYAN}── ${name} の中身を貼り付けてください${NC}"
-  info "エアギャップで出力された ${name}（JSON）をそのまま貼り付け、"
-  info "最後に改行してから Ctrl-D を押すと取り込みます。"
+  echo -e "  ${FG_CYAN}── $(t "${name} の中身を貼り付けてください" "Paste the contents of ${name}")${NC}"
+  info "$(t "エアギャップで出力された ${name}（JSON）をそのまま貼り付け、" "Paste the ${name} (JSON) produced on the air-gap as-is,")"
+  info "$(t "最後に改行してから Ctrl-D を押すと取り込みます。" "then add a newline and press Ctrl-D to import.")"
   echo -e "${SEP}"
   local tmp="${dest}.paste.tmp"
   cat > "$tmp"
   echo
   if ! jq -e '(.cborHex // "") | length > 0' "$tmp" >/dev/null 2>&1; then
-    err "有効な TextEnvelope ではありません（cborHex が見つかりません）。貼り付け内容を確認してください。"
+    err "$(t "有効な TextEnvelope ではありません（cborHex が見つかりません）。貼り付け内容を確認してください。" "Not a valid TextEnvelope (cborHex not found). Check what you pasted.")"
     rm -f "$tmp"
     return 1
   fi
   mv "$tmp" "$dest"
-  ok "${name} を取り込みました"
+  ok "$(t "${name} を取り込みました" "${name} imported")"
   return 0
 }
 
@@ -185,8 +186,8 @@ show_airgap_sign_payment() {
   local txfile="${1:-tx.raw}"
   local outfile="${2:-tx.signed}"
   local tb="${txfile##*/}" ob="${outfile##*/}"   # エアギャップでは bare 名で扱う
-  copyblock "エアギャップで実行（コピペ用）" \
-    "# cold-keys ロック解除" \
+  copyblock "$(t "エアギャップで実行（コピペ用）" "Run on the air-gapped machine (copy-paste)")" \
+    "$(t "# cold-keys ロック解除" "# unlock cold-keys")" \
     "chmod 400 \$HOME/cold-keys/payment.skey" \
     "" \
     "cardano-cli latest transaction sign \\" \
@@ -195,10 +196,10 @@ show_airgap_sign_payment() {
     "  --mainnet \\" \
     "  --out-file ${ob}" \
     "" \
-    "# cold-keys 再ロック" \
+    "$(t "# cold-keys 再ロック" "# re-lock cold-keys")" \
     "chmod 000 \$HOME/cold-keys/payment.skey" \
     "" \
-    "# 署名済みファイルを BP 貼り付け用のヒアドキュメント形式で表示" \
+    "$(t "# 署名済みファイルを BP 貼り付け用のヒアドキュメント形式で表示" "# print the signed file as a heredoc to paste on the BP")" \
     "{ echo \"cat > ${ob} << EOF\"; cat ${ob}; echo; echo EOF; }"
 }
 
@@ -207,8 +208,8 @@ show_airgap_sign_stake() {
   local txfile="${1:-tx.raw}"
   local outfile="${2:-tx.signed}"
   local tb="${txfile##*/}" ob="${outfile##*/}"   # エアギャップでは bare 名で扱う
-  copyblock "エアギャップで実行（コピペ用）" \
-    "# cold-keys ロック解除" \
+  copyblock "$(t "エアギャップで実行（コピペ用）" "Run on the air-gapped machine (copy-paste)")" \
+    "$(t "# cold-keys ロック解除" "# unlock cold-keys")" \
     "chmod 400 \$HOME/cold-keys/payment.skey" \
     "chmod 400 \$HOME/cold-keys/stake.skey" \
     "" \
@@ -219,11 +220,11 @@ show_airgap_sign_stake() {
     "  --mainnet \\" \
     "  --out-file ${ob}" \
     "" \
-    "# cold-keys 再ロック" \
+    "$(t "# cold-keys 再ロック" "# re-lock cold-keys")" \
     "chmod 000 \$HOME/cold-keys/payment.skey" \
     "chmod 000 \$HOME/cold-keys/stake.skey" \
     "" \
-    "# 署名済みファイルを BP 貼り付け用のヒアドキュメント形式で表示" \
+    "$(t "# 署名済みファイルを BP 貼り付け用のヒアドキュメント形式で表示" "# print the signed file as a heredoc to paste on the BP")" \
     "{ echo \"cat > ${ob} << EOF\"; cat ${ob}; echo; echo EOF; }"
 }
 
@@ -232,8 +233,8 @@ show_airgap_sign_node() {
   local txfile="${1:-tx.raw}"
   local outfile="${2:-tx.signed}"
   local tb="${txfile##*/}" ob="${outfile##*/}"   # エアギャップでは bare 名で扱う
-  copyblock "エアギャップで実行（コピペ用）" \
-    "# cold-keys ロック解除" \
+  copyblock "$(t "エアギャップで実行（コピペ用）" "Run on the air-gapped machine (copy-paste)")" \
+    "$(t "# cold-keys ロック解除" "# unlock cold-keys")" \
     "chmod u+rwx \$HOME/cold-keys" \
     "" \
     "cardano-cli latest transaction sign \\" \
@@ -243,16 +244,16 @@ show_airgap_sign_node() {
     "  --mainnet \\" \
     "  --out-file ${ob}" \
     "" \
-    "# cold-keys 再ロック" \
+    "$(t "# cold-keys 再ロック" "# re-lock cold-keys")" \
     "chmod a-rwx \$HOME/cold-keys" \
     "" \
-    "# 署名済みファイルを BP 貼り付け用のヒアドキュメント形式で表示" \
+    "$(t "# 署名済みファイルを BP 貼り付け用のヒアドキュメント形式で表示" "# print the signed file as a heredoc to paste on the BP")" \
     "{ echo \"cat > ${ob} << EOF\"; cat ${ob}; echo; echo EOF; }"
 }
 
 # --- 確認プロンプト（y/N）-----------------------------------------------------
 confirm() {
-  local msg="${1:-実行しますか？}"
+  local msg="${1:-$(t "実行しますか？" "Proceed?")}"
   echo -en "  ${FG_WHITE}${msg} [y/N]:${NC} "
   local ans
   read -r ans
@@ -261,7 +262,7 @@ confirm() {
 
 # --- Enter 待ち ---------------------------------------------------------------
 press_enter() {
-  local msg="${1:-確認したら Enter を押してください}"
+  local msg="${1:-$(t "確認したら Enter を押してください" "Press Enter to continue")}"
   echo -en "  ${FG_GRAY}${msg}${NC} "
   read -r
 }
@@ -431,7 +432,7 @@ _draw_menu() {
     fi
   done
   echo -e "${SEP}"
-  echo -e "  ${FG_GRAY}↑↓ 移動  Enter 確定  数字キー即選択  q 戻る${NC}"
+  echo -e "  ${FG_GRAY}$(t "↑↓ 移動  Enter 確定  数字キー即選択  q 戻る" "↑↓ move  Enter select  number = quick pick  q back")${NC}"
 }
 
 menu_select() {
@@ -494,15 +495,18 @@ tx_submit() {
   local name; name=$(basename "$signed_file")
 
   echo
-  info "エアギャップ出力の「cat > ${rel} << EOF … EOF」を BP の ${NODE_HOME} で実行すると作成できます。"
-  if confirm "代わりに ctool に直接貼り付けて取り込みますか？（heredocで作成済みなら No）"; then
+  info "$(t "エアギャップ出力の「cat > ${rel} << EOF … EOF」を BP の ${NODE_HOME} で実行すると作成できます。" \
+           "Run the air-gap output ('cat > ${rel} << EOF … EOF') in ${NODE_HOME} on the BP to create it.")"
+  if confirm "$(t "代わりに ctool に直接貼り付けて取り込みますか？（heredocで作成済みなら No）" \
+                  "Paste the file content directly into ctool instead? (No if you already created it via heredoc)")"; then
     paste_signed_file "$signed_file" || { press_enter; return 1; }
   else
-    press_enter "${name} を ${signed_file%/*}/ に用意したら Enter を押してください"
+    press_enter "$(t "${name} を ${signed_file%/*}/ に用意したら Enter を押してください" \
+                     "Place ${name} in ${signed_file%/*}/ then press Enter")"
   fi
 
   if [[ ! -f "$signed_file" ]]; then
-    err "${name} が見つかりません: ${signed_file}"
+    err "$(t "${name} が見つかりません" "${name} not found"): ${signed_file}"
     return 1
   fi
 
@@ -511,9 +515,10 @@ tx_submit() {
   local env_type
   env_type=$(jq -r '.type // ""' "$signed_file" 2>/dev/null)
   if [[ "$env_type" == *Unwitnessed* || "$env_type" == *TxBody* ]]; then
-    err "このファイルは未署名です（type: ${env_type}）。"
-    warn "未署名の *-tx.raw を貼り付けた可能性があります。"
-    info "エアギャップで署名したファイル（type が「Witnessed Tx …」）を貼り付けてください。"
+    err "$(t "このファイルは未署名です（type: ${env_type}）。" "This file is unsigned (type: ${env_type}).")"
+    warn "$(t "未署名の tx.raw を貼り付けた可能性があります。" "You may have pasted the unsigned tx.raw.")"
+    info "$(t "エアギャップで署名したファイル（type が「Witnessed Tx …」）を貼り付けてください。" \
+             "Paste the air-gap signed file (type 'Witnessed Tx …').")"
     return 1
   fi
 
@@ -532,33 +537,38 @@ tx_submit() {
     done <<< "$tx_inputs"
   fi
   if [[ -n "$stale" ]]; then
-    err "署名済み tx が参照する入力が現在の UTxO に存在しません:"
+    err "$(t "署名済み tx が参照する入力が現在の UTxO に存在しません:" \
+             "The signed tx references inputs that no longer exist in the current UTxO set:")"
     echo -e "  ${FG_GRAY}${stale}${NC}"
-    warn "古い *-tx.raw に署名している可能性が高いです（送信しても必ず失敗します）。"
-    info "エアギャップ上の古い *-tx.raw を削除し、BP で今ビルドした最新の raw を転送して署名し直してください。"
+    warn "$(t "古い tx.raw に署名している可能性が高いです（送信しても必ず失敗します）。" \
+             "You likely signed an old tx.raw (submitting it will always fail).")"
+    info "$(t "エアギャップ上の古い tx.raw を削除し、BP で今ビルドした最新の raw を転送して署名し直してください。" \
+             "Delete the old tx.raw on the air-gap, transfer the freshly built raw from the BP, and re-sign.")"
     return 1
   fi
 
-  info "送信中..."
+  info "$(t "送信中..." "Submitting...")"
   local submit_err
   if submit_err=$(cardano-cli latest transaction submit \
     --tx-file "$signed_file" \
     ${NETWORK} 2>&1); then
-    ok "トランザクションを送信しました"
+    ok "$(t "トランザクションを送信しました" "Transaction submitted")"
     local txid
     txid=$(cardano-cli latest transaction txid --tx-file "$signed_file" 2>/dev/null)
     if [[ -n "$txid" ]]; then
       echo -e "  ${FG_GRAY}Tx ID: ${txid}${NC}"
-      info "反映まで数十秒〜1分ほどかかります。エクスプローラで上記 Tx ID を確認できます。"
+      info "$(t "反映まで数十秒〜1分ほどかかります。エクスプローラで上記 Tx ID を確認できます。" \
+               "It takes ~30-60s to appear on-chain. Look up the Tx ID above in an explorer.")"
     fi
   else
-    err "送信に失敗しました"
+    err "$(t "送信に失敗しました" "Submission failed")"
     [[ -n "$submit_err" ]] && echo -e "  ${FG_GRAY}${submit_err}${NC}"
     # 入力が既に使用済み。「既に取り込み済み」か「別txが入力を消費」かはノードでは区別不可。
     if printf '%s' "$submit_err" | grep -qiE "already been included|All inputs are spent"; then
-      warn "入力UTxOが既に使用済みです（このtxが取り込まれた／別txが入力を消費した、のどちらか）。"
-      info "gov-state で結果を確認してください。未反映なら、メニューから操作をやり直すと"
-      info "最新のUTxOで再ビルドされます（同じ署名ファイルの再送信では直りません）。"
+      warn "$(t "入力UTxOが既に使用済みです（このtxが取り込まれた／別txが入力を消費した、のどちらか）。" \
+               "The input UTxO is already spent (either this tx was included, or another tx spent it).")"
+      info "$(t "gov-state 等で結果を確認してください。未反映なら、メニューから操作をやり直すと最新のUTxOで再ビルドされます（同じ署名ファイルの再送信では直りません）。" \
+               "Check the result (e.g. gov-state). If not reflected, redo the operation from the menu to rebuild with the current UTxO (resubmitting the same signed file will not help).")"
     fi
     return 1
   fi
@@ -572,11 +582,11 @@ menu_wallet() {
   while true; do
     clear
     show_header
-    menu_select "プール資金の管理" \
-      "[1]  ウォレット残高を表示する" \
-      "[2]  リワードを送金する" \
-      "[3]  プール資金を送金する" \
-      "[b]  戻る"
+    menu_select "$(t "プール資金の管理" "Manage pool funds")" \
+      "[1]  $(t "ウォレット残高を表示する" "Show wallet balance")" \
+      "[2]  $(t "リワードを送金する"       "Withdraw rewards")" \
+      "[3]  $(t "プール資金を送金する"     "Send pool funds")" \
+      "[b]  $(t "戻る" "Back")"
     local choice=$?
 
     case $choice in
@@ -590,19 +600,19 @@ menu_wallet() {
 
 wallet_show_balance() {
   clear
-  section "ウォレット残高"
+  section "$(t "ウォレット残高" "Wallet balance")"
 
   # ファイル存在チェック
   if [[ ! -f "${NODE_HOME}/payment.addr" ]]; then
-    err "payment.addr が見つかりません: ${NODE_HOME}/payment.addr"
+    err "$(t "payment.addr が見つかりません" "payment.addr not found"): ${NODE_HOME}/payment.addr"
     press_enter; return
   fi
   if [[ ! -f "${NODE_HOME}/stake.addr" ]]; then
-    err "stake.addr が見つかりません: ${NODE_HOME}/stake.addr"
+    err "$(t "stake.addr が見つかりません" "stake.addr not found"): ${NODE_HOME}/stake.addr"
     press_enter; return
   fi
 
-  info "残高を取得中..."
+  info "$(t "残高を取得中..." "Fetching balance...")"
 
   local result pay_balance utxo_count
   result=$(get_payment_balance)
@@ -615,7 +625,7 @@ wallet_show_balance() {
 
   # クエリエラーの検知
   if [[ -s "${NODE_HOME}/balance.err" ]]; then
-    warn "UTxO クエリでエラーが発生しました："
+    warn "$(t "UTxO クエリでエラーが発生しました：" "The UTxO query returned an error:")"
     while IFS= read -r line; do info "  ${line}"; done < "${NODE_HOME}/balance.err"
     echo
   fi
@@ -629,53 +639,53 @@ wallet_show_balance() {
   [[ -n "$pool_info" ]] && pledge_lovelace=$(echo "$pool_info" | jq -r '.pledge // 0')
 
   echo -e "  ${FG_CYAN}payment.addr${NC}"
-  echo -e "    アドレス : $(cat "${NODE_HOME}/payment.addr")"
-  echo -e "    残高     : $(format_ada $pay_balance) ADA"
-  echo -e "    UTXO     : ${utxo_count} 件"
+  echo -e "    $(t "アドレス" "Address") : $(cat "${NODE_HOME}/payment.addr")"
+  echo -e "    $(t "残高    " "Balance") : $(format_ada $pay_balance) ADA"
+  echo -e "    UTXO     : ${utxo_count}$(t " 件" "")"
   echo
-  echo -e "  ${FG_CYAN}stake.addr（報酬）${NC}"
-  echo -e "    残高 : $(format_ada $reward_balance) ADA"
+  echo -e "  ${FG_CYAN}$(t "stake.addr（報酬）" "stake.addr (rewards)")${NC}"
+  echo -e "    $(t "残高" "Balance") : $(format_ada $reward_balance) ADA"
   echo
-  [[ $pledge_lovelace -gt 0 ]] && warn "誓約額 $(format_ada $pledge_lovelace) ADA を維持してください"
+  [[ $pledge_lovelace -gt 0 ]] && warn "$(t "誓約額 $(format_ada $pledge_lovelace) ADA を維持してください" "Keep at least the pledge of $(format_ada $pledge_lovelace) ADA")"
 
   press_enter
 }
 
 wallet_send_reward() {
   clear
-  section "リワードを送金する"
+  section "$(t "リワードを送金する" "Withdraw rewards")"
 
   local reward_balance
   reward_balance=$(get_reward_balance)
 
   if [[ $reward_balance -eq 0 ]]; then
-    warn "引き出せる報酬がありません"
+    warn "$(t "引き出せる報酬がありません" "No rewards available to withdraw")"
     press_enter
     return
   fi
 
-  echo -e "  stake.addr 残高 : $(format_ada $reward_balance) ADA"
-  warn "報酬は全額のみ引き出し可能です"
+  echo -e "  $(t "stake.addr 残高" "stake.addr balance") : $(format_ada $reward_balance) ADA"
+  warn "$(t "報酬は全額のみ引き出し可能です" "Rewards can only be withdrawn in full")"
   echo
 
-  menu_select "送金先を選択" \
-    "[1]  外部アドレス / ADAhandle に送金する" \
-    "[2]  プールウォレットに送金する（payment.addr）" \
-    "[b]  戻る"
+  menu_select "$(t "送金先を選択" "Choose destination")" \
+    "[1]  $(t "外部アドレス / ADAhandle に送金する" "Send to an external address / ADAhandle")" \
+    "[2]  $(t "プールウォレットに送金する（payment.addr）" "Send to the pool wallet (payment.addr)")" \
+    "[b]  $(t "戻る" "Back")"
   local choice=$?
 
   local dest_addr="" dest_label=""
 
   case $choice in
     0)
-      echo -en "  ${FG_WHITE}送金先（addr1... または \$handle）：${NC} "
+      echo -en "  ${FG_WHITE}$(t "送金先（addr1... または \$handle）" "Destination (addr1... or \$handle)")：${NC} "
       local dest_input
       read -r dest_input
       if [[ "${dest_input}" == \$* ]]; then
-        info "ADAhandle を解決中..."
+        info "$(t "ADAhandle を解決中..." "Resolving ADAhandle...")"
         dest_addr=$(resolve_handle "$dest_input")
         if [[ -z "$dest_addr" ]]; then
-          err "ADAhandle が見つかりませんでした: ${dest_input}"
+          err "$(t "ADAhandle が見つかりませんでした" "ADAhandle not found"): ${dest_input}"
           press_enter; return
         fi
         dest_label="${dest_input}（${dest_addr:0:20}...）"
@@ -686,13 +696,13 @@ wallet_send_reward() {
       ;;
     1)
       dest_addr=$(cat "${NODE_HOME}/payment.addr")
-      dest_label="payment.addr（プールウォレット）"
+      dest_label="$(t "payment.addr（プールウォレット）" "payment.addr (pool wallet)")"
       ;;
     99) return ;;
   esac
 
-  info "tx.raw を作成中です。しばらくお待ちください…"
-  info "（作成後、この tx.raw をエアギャップに貼り付けて署名します）"
+  info "$(t "tx.raw を作成中です。しばらくお待ちください…" "Building tx.raw, please wait…")"
+  info "$(t "（作成後、この tx.raw をエアギャップに貼り付けて署名します）" "(after building, paste this tx.raw on the air-gap and sign it)")"
   get_params
   local result pay_balance tx_in
   result=$(get_payment_balance)
@@ -727,14 +737,14 @@ wallet_send_reward() {
     --out-file "${NODE_HOME}/tx.raw" 2>/dev/null
 
   echo
-  echo -e "  ${FG_CYAN}── 送金内容の確認${NC}"
-  echo -e "  送金先 : ${dest_label}"
-  echo -e "  報酬額 : $(format_ada $reward_balance) ADA"
-  echo -e "  手数料 : $(format_ada $fee) ADA"
-  echo -e "  受取額 : $(format_ada $receive_amount) ADA"
+  echo -e "  ${FG_CYAN}── $(t "送金内容の確認" "Review transfer")${NC}"
+  echo -e "  $(t "送金先" "To    ") : ${dest_label}"
+  echo -e "  $(t "報酬額" "Reward") : $(format_ada $reward_balance) ADA"
+  echo -e "  $(t "手数料" "Fee   ") : $(format_ada $fee) ADA"
+  echo -e "  $(t "受取額" "Net   ") : $(format_ada $receive_amount) ADA"
   echo -e "${SEP}"
 
-  confirm "実行しますか？" || return
+  confirm "$(t "実行しますか？" "Proceed?")" || return
 
   show_txraw
   show_airgap_sign_stake "tx.raw" "tx.signed"
@@ -748,7 +758,7 @@ wallet_send_reward() {
 
 wallet_send_payment() {
   clear
-  section "プール資金を送金する"
+  section "$(t "プール資金を送金する" "Send pool funds")"
 
   local result pay_balance tx_in
   result=$(get_payment_balance)
@@ -764,22 +774,22 @@ wallet_send_payment() {
   local pledge_max=$(( pay_balance - pledge_lovelace - est_fee ))   # 誓約維持で送れる目安
   local abs_max=$(( pay_balance - est_fee ))                        # 物理的な上限（全額送金）
 
-  echo -e "  残高                 : $(format_ada $pay_balance) ADA"
-  echo -e "  誓約額               : $(format_ada $pledge_lovelace) ADA"
-  echo -e "  誓約維持で送れる目安 : $(format_ada $pledge_max) ADA"
-  echo -e "  送金可能上限（全額） : $(format_ada $abs_max) ADA"
-  info "誓約を下回る送金も可能です（プール引退時など）。下回る場合は確認が出ます。"
+  echo -e "  $(t "残高                " "Balance             ") : $(format_ada $pay_balance) ADA"
+  echo -e "  $(t "誓約額              " "Pledge              ") : $(format_ada $pledge_lovelace) ADA"
+  echo -e "  $(t "誓約維持で送れる目安" "Sendable (keep pledge)") : $(format_ada $pledge_max) ADA"
+  echo -e "  $(t "送金可能上限（全額）" "Max sendable (all)  ") : $(format_ada $abs_max) ADA"
+  info "$(t "誓約を下回る送金も可能です（プール引退時など）。下回る場合は確認が出ます。" "Sending below the pledge is allowed (e.g. pool retirement); you'll be asked to confirm if it does.")"
   echo
 
-  echo -e "  ${FG_GRAY}  b: 戻る${NC}"
-  echo -en "  ${FG_WHITE}送金先アドレス：${NC} "
+  echo -e "  ${FG_GRAY}  $(t "b: 戻る" "b: back")${NC}"
+  echo -en "  ${FG_WHITE}$(t "送金先アドレス" "Destination address")：${NC} "
   local dest_addr
   read -r dest_addr
   [[ -z "$dest_addr" || "$dest_addr" == "b" || "$dest_addr" == "q" ]] && return
 
   local send_lovelace=0 send_all=false send_ada=""
   while true; do
-    echo -en "  ${FG_WHITE}送金額（ADA、全額送金は all）：${NC} "
+    echo -en "  ${FG_WHITE}$(t "送金額（ADA、全額送金は all）" "Amount (ADA, or 'all' to send everything)")：${NC} "
     read -r send_ada
     [[ -z "$send_ada" || "$send_ada" == "b" || "$send_ada" == "q" ]] && return
     if [[ "$send_ada" == "all" || "$send_ada" == "全額" || "$send_ada" == "max" ]]; then
@@ -787,20 +797,20 @@ wallet_send_payment() {
     fi
     send_lovelace=$(ada_to_lovelace "$send_ada")
     if [[ ! "$send_lovelace" =~ ^[0-9]+$ || $send_lovelace -le 0 ]]; then
-      echo; err "金額の入力が不正です"; echo; continue
+      echo; err "$(t "金額の入力が不正です" "Invalid amount")"; echo; continue
     fi
     if [[ $send_lovelace -gt $abs_max ]]; then
       echo
-      err "残高を超えています（手数料込みで送れません）"
-      echo -e "  送金可能上限（全額）: $(format_ada $abs_max) ADA"
+      err "$(t "残高を超えています（手数料込みで送れません）" "Exceeds balance (cannot cover amount + fee)")"
+      echo -e "  $(t "送金可能上限（全額）" "Max sendable (all)"): $(format_ada $abs_max) ADA"
       echo
       continue
     fi
     break
   done
 
-  info "tx.raw を作成中です。しばらくお待ちください…"
-  info "（作成後、この tx.raw をエアギャップに貼り付けて署名します）"
+  info "$(t "tx.raw を作成中です。しばらくお待ちください…" "Building tx.raw, please wait…")"
+  info "$(t "（作成後、この tx.raw をエアギャップに貼り付けて署名します）" "(after building, paste this tx.raw on the air-gap and sign it)")"
   get_params
   local min_utxo=1000000   # おつりがこれ未満なら全額送金へ切替（0 lovelace 出力は無効なため）
   local fee change=0 ttl
@@ -835,10 +845,10 @@ wallet_send_payment() {
     fee=$(_build_fee_draft 2)
     change=$(( pay_balance - send_lovelace - fee ))
     if [[ $change -lt 0 ]]; then
-      err "残高不足です（手数料込みで送れません）"; press_enter; return
+      err "$(t "残高不足です（手数料込みで送れません）" "Insufficient balance (cannot cover amount + fee)")"; press_enter; return
     fi
     if [[ $change -lt $min_utxo ]]; then
-      warn "おつりが最小UTxO未満のため、全額送金に切り替えます。"
+      warn "$(t "おつりが最小UTxO未満のため、全額送金に切り替えます。" "Change is below the minimum UTxO; switching to full send.")"
       send_all=true
       fee=$(_build_fee_draft 1)
       send_lovelace=$(( pay_balance - fee ))
@@ -849,10 +859,10 @@ wallet_send_payment() {
   # 誓約チェック：送金後の残高が誓約を下回る場合はブロックせず確認する
   if [[ $pledge_lovelace -gt 0 && $change -lt $pledge_lovelace ]]; then
     echo
-    warn "送金後の残高 $(format_ada $change) ADA は誓約額 $(format_ada $pledge_lovelace) ADA を下回ります。"
-    info "プール引退などで全額を引き出す場合は続行してください。"
-    info "現役プールで誓約を割ると、そのエポックのブロック生成・報酬に影響します。"
-    confirm "誓約を下回りますが、続けますか？" || return
+    warn "$(t "送金後の残高 $(format_ada $change) ADA は誓約額 $(format_ada $pledge_lovelace) ADA を下回ります。" "Balance after sending, $(format_ada $change) ADA, is below the pledge of $(format_ada $pledge_lovelace) ADA.")"
+    info "$(t "プール引退などで全額を引き出す場合は続行してください。" "Continue if you are withdrawing everything (e.g. retiring the pool).")"
+    info "$(t "現役プールで誓約を割ると、そのエポックのブロック生成・報酬に影響します。" "For an active pool, falling below pledge affects that epoch's block production and rewards.")"
+    confirm "$(t "誓約を下回りますが、続けますか？" "This goes below the pledge. Continue?")" || return
   fi
 
   ttl=$(get_ttl)
@@ -870,15 +880,15 @@ wallet_send_payment() {
   fi
 
   echo
-  echo -e "  ${FG_CYAN}── 送金内容の確認${NC}"
-  echo -e "  送金先 : ${dest_addr:0:40}"
-  echo -e "  送金額 : $(format_ada $send_lovelace) ADA（${send_lovelace} lovelace）"
-  echo -e "  手数料 : $(format_ada $fee) ADA"
-  echo -e "  おつり : $(format_ada $change) ADA"
-  [[ "$send_all" == "true" ]] && echo -e "  ${FG_GRAY}（全額送金：おつり無し）${NC}"
+  echo -e "  ${FG_CYAN}── $(t "送金内容の確認" "Review transfer")${NC}"
+  echo -e "  $(t "送金先" "To    ") : ${dest_addr:0:40}"
+  echo -e "  $(t "送金額" "Amount") : $(format_ada $send_lovelace) ADA（${send_lovelace} lovelace）"
+  echo -e "  $(t "手数料" "Fee   ") : $(format_ada $fee) ADA"
+  echo -e "  $(t "おつり" "Change") : $(format_ada $change) ADA"
+  [[ "$send_all" == "true" ]] && echo -e "  ${FG_GRAY}$(t "（全額送金：おつり無し）" "(full send: no change)")${NC}"
   echo -e "${SEP}"
 
-  confirm "実行しますか？" || return
+  confirm "$(t "実行しますか？" "Proceed?")" || return
 
   show_txraw
   show_airgap_sign_payment "tx.raw" "tx.signed"
@@ -894,9 +904,9 @@ menu_pool_check() {
   while true; do
     clear
     show_header
-    menu_select "プール設定の確認" \
-      "[1]  現在のブロック生成状態" \
-      "[b]  戻る"
+    menu_select "$(t "プール設定の確認" "Pool status")" \
+      "[1]  $(t "現在のブロック生成状態" "Block production status")" \
+      "[b]  $(t "戻る" "Back")"
     local choice=$?
 
     case $choice in
@@ -908,36 +918,36 @@ menu_pool_check() {
 
 pool_health_check() {
   clear
-  section "ブロック生成 ヘルスチェック"
+  section "$(t "ブロック生成 ヘルスチェック" "Block production health check")"
 
   local all_ok=true
 
   # ノード起動確認
-  echo -e "  ${FG_CYAN}ノード起動状態${NC}"
+  echo -e "  ${FG_CYAN}$(t "ノード起動状態" "Node status")${NC}"
   local pid
   pid=$(pgrep -x cardano-node 2>/dev/null | head -1 || echo "")
   if [[ -n "$pid" ]]; then
-    ok "cardano-node 起動中（PID: ${pid}）"
+    ok "$(t "cardano-node 起動中" "cardano-node running")（PID: ${pid}）"
   else
-    err "cardano-node が起動していません"
+    err "$(t "cardano-node が起動していません" "cardano-node is not running")"
     all_ok=false
   fi
   echo
 
   # 必須ファイル確認
-  echo -e "  ${FG_CYAN}必須ファイル${NC}"
+  echo -e "  ${FG_CYAN}$(t "必須ファイル" "Required files")${NC}"
   for f in kes.skey kes.vkey vrf.skey vrf.vkey node.cert; do
     if [[ -f "${NODE_HOME}/${f}" ]]; then
       ok "${f}"
     else
-      err "${f}  見つかりません"
+      err "${f}  $(t "見つかりません" "not found")"
       all_ok=false
     fi
   done
   echo
 
   # KES 状態確認
-  echo -e "  ${FG_CYAN}KES 証明書の状態${NC}"
+  echo -e "  ${FG_CYAN}$(t "KES 証明書の状態" "KES certificate status")${NC}"
   local kes_info
   kes_info=$(cardano-cli latest query kes-period-info \
     --op-cert-file "${NODE_HOME}/node.cert" \
@@ -955,26 +965,26 @@ pool_health_check() {
     local kes_days=$(( kes_remaining * slots_per_kes / 86400 ))
 
     if [[ $kes_remaining -gt 0 ]]; then
-      ok "KES 残日数 : 約${kes_days}日（残り${kes_remaining}期）"
-      ok "opcert カウンター : ${kes_counter}"
-      [[ -n "$kes_expiry_date" ]] && info "有効期限 : ${kes_expiry_date}"
+      ok "$(t "KES 残日数" "KES days left") : $(t "約${kes_days}日（残り${kes_remaining}期）" "~${kes_days} days (${kes_remaining} periods)")"
+      ok "$(t "opcert カウンター" "opcert counter") : ${kes_counter}"
+      [[ -n "$kes_expiry_date" ]] && info "$(t "有効期限" "Expiry") : ${kes_expiry_date}"
     else
-      err "KES 期限切れ（現在期=${kes_current}  期限期=${kes_expiry}）"
+      err "$(t "KES 期限切れ（現在期=${kes_current}  期限期=${kes_expiry}）" "KES expired (current=${kes_current}  end=${kes_expiry})")"
       all_ok=false
     fi
   else
-    err "KES 情報を取得できません"
+    err "$(t "KES 情報を取得できません" "Cannot fetch KES info")"
     all_ok=false
   fi
   echo
 
   # 総合判定
-  echo -e "  ${FG_CYAN}総合判定${NC}"
+  echo -e "  ${FG_CYAN}$(t "総合判定" "Overall")${NC}"
   if [[ "$all_ok" == "true" ]]; then
-    ok "ブロック生成可能な状態です"
+    ok "$(t "ブロック生成可能な状態です" "Ready to produce blocks")"
   else
-    err "ブロック生成できない状態です"
-    warn "[3] KES の更新をする を実行してください"
+    err "$(t "ブロック生成できない状態です" "Not ready to produce blocks")"
+    warn "$(t "[3] KES の更新をする を実行してください" "Run [3] Update KES")"
   fi
 
   press_enter
@@ -986,7 +996,7 @@ pool_health_check() {
 
 menu_kes_update() {
   clear
-  section "KES の更新をする"
+  section "$(t "KES の更新をする" "Update KES")"
 
   local kes_info
   kes_info=$(cardano-cli latest query kes-period-info \
@@ -995,7 +1005,7 @@ menu_kes_update() {
     | sed -n '/^{/,$p' || echo "")
 
   if [[ -z "$kes_info" ]]; then
-    err "KES 情報を取得できません。ノードが起動しているか確認してください。"
+    err "$(t "KES 情報を取得できません。ノードが起動しているか確認してください。" "Cannot fetch KES info. Check that the node is running.")"
     press_enter; return
   fi
 
@@ -1003,37 +1013,37 @@ menu_kes_update() {
   kes_current=$(echo "$kes_info"     | jq -r '.qKesCurrentKesPeriod // "0"')
   kes_expiry=$(echo "$kes_info"      | jq -r '.qKesEndKesInterval // "0"')
   kes_counter=$(echo "$kes_info"     | jq -r '.qKesOnDiskOperationalCertificateNumber // "0"')
-  kes_expiry_date=$(echo "$kes_info" | jq -r '.qKesKesKeyExpiry // "不明"')
+  kes_expiry_date=$(echo "$kes_info" | jq -r ".qKesKesKeyExpiry // \"$(t "不明" "unknown")\"")
   slots_per_kes=$(echo "$kes_info"   | jq -r '.qKesSlotsPerKesPeriod // 129600')
 
   local kes_remaining=$(( ${kes_expiry:-0} - ${kes_current:-0} ))
   local kes_days=$(( kes_remaining * slots_per_kes / 86400 ))
 
   if [[ $kes_remaining -le 0 ]]; then
-    echo -e "  KES 残日数  : ${FG_RED}期限切れ${NC}（現在期=${kes_current} / 期限期=${kes_expiry}）"
+    echo -e "  $(t "KES 残日数 " "KES days left") : ${FG_RED}$(t "期限切れ" "expired")${NC}$(t "（現在期=${kes_current} / 期限期=${kes_expiry}）" " (current=${kes_current} / end=${kes_expiry})")"
   else
-    echo -e "  KES 残日数  : ${kes_days} 日（残り${kes_remaining}期）"
+    echo -e "  $(t "KES 残日数 " "KES days left") : ${kes_days}$(t " 日（残り${kes_remaining}期）" " days (${kes_remaining} periods)")"
   fi
-  echo -e "  更新回数    : ${kes_counter}"
-  echo -e "  有効期限    : ${kes_expiry_date}"
+  echo -e "  $(t "更新回数   " "Counter    ") : ${kes_counter}"
+  echo -e "  $(t "有効期限   " "Expiry     ") : ${kes_expiry_date}"
   echo
 
-  confirm "更新しますか？" || return
+  confirm "$(t "更新しますか？" "Update now?")" || return
 
   _kes_check_schedule       || return
-  _kes_step1_generate       || { err "STEP 1 で問題が発生したため中断します。"; press_enter; return; }
+  _kes_step1_generate       || { err "$(t "STEP 1 で問題が発生したため中断します。" "STEP 1 failed; aborting.")"; press_enter; return; }
   _kes_step2_transfer       || return
   _kes_step3_transfer_cert  || return
   _kes_step4_restart
 }
 
 _kes_check_schedule() {
-  info "ブロック生成スケジュールを確認中..."
+  info "$(t "ブロック生成スケジュールを確認中..." "Checking block production schedule...")"
 
   local db="${NODE_HOME}/cncli/cncli.db"
   if [[ ! -f "$db" ]]; then
-    warn "cncli.db が見つかりません。スケジュール確認をスキップします。"
-    confirm "このまま続けますか？" || return 1
+    warn "$(t "cncli.db が見つかりません。スケジュール確認をスキップします。" "cncli.db not found; skipping schedule check.")"
+    confirm "$(t "このまま続けますか？" "Continue anyway?")" || return 1
     return 0
   fi
 
@@ -1061,43 +1071,43 @@ _kes_check_schedule() {
     local diff_hour=$(( diff_min / 60 ))
 
     if [[ $diff -lt 3600 ]]; then
-      warn "1時間以内にブロック生成があります（${diff_min}分後）"
-      confirm "それでも実行しますか？" || return 1
+      warn "$(t "1時間以内にブロック生成があります（${diff_min}分後）" "A block is scheduled within the hour (in ${diff_min} min)")"
+      confirm "$(t "それでも実行しますか？" "Proceed anyway?")" || return 1
     else
-      ok "次のブロック生成まで ${diff_hour}時間$(( diff_min % 60 ))分 あります"
-      confirm "実行しますか？" || return 1
+      ok "$(t "次のブロック生成まで ${diff_hour}時間$(( diff_min % 60 ))分 あります" "Next block is in ${diff_hour}h $(( diff_min % 60 ))m")"
+      confirm "$(t "実行しますか？" "Proceed?")" || return 1
     fi
   else
-    ok "現エポック内にスケジュールはありません"
-    confirm "実行しますか？" || return 1
+    ok "$(t "現エポック内にスケジュールはありません" "No blocks scheduled this epoch")"
+    confirm "$(t "実行しますか？" "Proceed?")" || return 1
   fi
   return 0
 }
 
 _kes_step1_generate() {
-  section "STEP 1: KES キー生成＋オンチェーン情報取得"
+  section "$(t "STEP 1: KES キー生成＋オンチェーン情報取得" "STEP 1: Generate KES key + fetch on-chain info")"
 
   local ts
   ts=$(date +%Y%m%d_%H%M%S)
   [[ -f "${NODE_HOME}/kes.vkey" ]]  && cp "${NODE_HOME}/kes.vkey"  "${NODE_HOME}/kes-bk-${ts}.vkey"
   [[ -f "${NODE_HOME}/kes.skey" ]]  && cp "${NODE_HOME}/kes.skey"  "${NODE_HOME}/kes-bk-${ts}.skey"
   [[ -f "${NODE_HOME}/node.cert" ]] && cp "${NODE_HOME}/node.cert" "${NODE_HOME}/node-bk-${ts}.cert"
-  ok "既存ファイルをバックアップしました（${ts}）"
+  ok "$(t "既存ファイルをバックアップしました（${ts}）" "Backed up existing files (${ts})")"
 
   if ! cardano-cli latest node key-gen-KES \
     --verification-key-file "${NODE_HOME}/kes.vkey" \
     --signing-key-file "${NODE_HOME}/kes.skey"; then
-    err "KES キーの生成に失敗しました。"
+    err "$(t "KES キーの生成に失敗しました。" "Failed to generate KES key.")"
     # 上書きに失敗している可能性があるためバックアップから復元
     [[ -f "${NODE_HOME}/kes-bk-${ts}.vkey" ]] && cp "${NODE_HOME}/kes-bk-${ts}.vkey" "${NODE_HOME}/kes.vkey"
     [[ -f "${NODE_HOME}/kes-bk-${ts}.skey" ]] && cp "${NODE_HOME}/kes-bk-${ts}.skey" "${NODE_HOME}/kes.skey"
     return 1
   fi
-  ok "新規 kes.vkey / kes.skey を生成しました"
+  ok "$(t "新規 kes.vkey / kes.skey を生成しました" "Generated new kes.vkey / kes.skey")"
 
-  warn "この時点で kes.skey は新しくなり、node.cert は旧のままです。"
-  info "STEP 4 の再起動までに予期せぬノード再起動が起きると forge が一時停止します。"
-  info "問題時は kes-bk-${ts}.* / node-bk-${ts}.cert から復元できます。"
+  warn "$(t "この時点で kes.skey は新しくなり、node.cert は旧のままです。" "kes.skey is now new while node.cert is still the old one.")"
+  info "$(t "STEP 4 の再起動までに予期せぬノード再起動が起きると forge が一時停止します。" "If the node restarts unexpectedly before STEP 4, forging will pause.")"
+  info "$(t "問題時は kes-bk-${ts}.* / node-bk-${ts}.cert から復元できます。" "On trouble, restore from kes-bk-${ts}.* / node-bk-${ts}.cert.")"
 
   local chain_counter=""
   if [[ -f "${NODE_HOME}/node-bk-${ts}.cert" ]]; then
@@ -1111,19 +1121,19 @@ _kes_step1_generate() {
   # カウンターは KES 更新で最も事故が多い箇所。
   # クエリ失敗で空のまま +1 すると小さい番号で発行→チェーン拒否でブロック停止になる。
   if [[ ! "$chain_counter" =~ ^[0-9]+$ ]]; then
-    err "オンチェーンの op-cert カウンターを取得できませんでした（取得値: '${chain_counter:-空}'）。"
-    warn "誤ったカウンターで証明書を発行するとブロック生成が停止します。"
-    info "エアギャップの \$HOME/cold-keys/node.counter の値を直接確認してください。"
-    info "issue-op-cert は node.counter の値をそのまま証明書番号に使い、発行後に +1 します。"
-    confirm "カウンターを手動で確認できる場合のみ続行してください。続けますか？" || return 1
+    err "$(t "オンチェーンの op-cert カウンターを取得できませんでした（取得値: '${chain_counter:-空}'）。" "Could not read the on-chain op-cert counter (got: '${chain_counter:-empty}').")"
+    warn "$(t "誤ったカウンターで証明書を発行するとブロック生成が停止します。" "Issuing a cert with the wrong counter will stop block production.")"
+    info "$(t "エアギャップの \$HOME/cold-keys/node.counter の値を直接確認してください。" "Check \$HOME/cold-keys/node.counter on the air-gap directly.")"
+    info "$(t "issue-op-cert は node.counter の値をそのまま証明書番号に使い、発行後に +1 します。" "issue-op-cert uses the node.counter value as the cert number, then increments it by 1.")"
+    confirm "$(t "カウンターを手動で確認できる場合のみ続行してください。続けますか？" "Continue only if you can verify the counter manually. Proceed?")" || return 1
     # 手動入力（誤入力防止のため数値のみ受理）
     local manual=""
     while [[ ! "$manual" =~ ^[0-9]+$ ]]; do
-      printf "  新しいカウンター値（次に発行する証明書番号）を入力: "
+      printf "  %s: " "$(t "新しいカウンター値（次に発行する証明書番号）を入力" "Enter the new counter value (next cert number)")"
       read -r manual
     done
     local new_counter="$manual"
-    chain_counter="(手動)"
+    chain_counter="$(t "(手動)" "(manual)")"
   else
     local new_counter=$(( chain_counter + 1 ))
   fi
@@ -1141,20 +1151,20 @@ _kes_step1_generate() {
   kes_skey_hash=$(sha256sum "${NODE_HOME}/kes.skey" | awk '{print $1}')
 
   echo
-  echo -e "  オンチェーンカウンター : ${chain_counter}"
-  echo -e "  新しいカウンター値    : ${new_counter}"
+  echo -e "  $(t "オンチェーンカウンター" "On-chain counter") : ${chain_counter}"
+  echo -e "  $(t "新しいカウンター値   " "New counter value") : ${new_counter}"
   echo -e "  startKesPeriod       : ${start_kes}"
   echo
-  echo -e "  kes.vkey ハッシュ : ${kes_vkey_hash}"
-  echo -e "  kes.skey ハッシュ : ${kes_skey_hash}"
+  echo -e "  $(t "kes.vkey ハッシュ" "kes.vkey hash") : ${kes_vkey_hash}"
+  echo -e "  $(t "kes.skey ハッシュ" "kes.skey hash") : ${kes_skey_hash}"
   echo -e "${SEP}"
 
-  warn "発行前に \$HOME/cold-keys/node.counter の現在値を確認し、新カウンター(${new_counter})が妥当か照合してください。"
-  copyblock "エアギャップで実行（コピペ用）" \
-    "# cold-keys ロック解除" \
+  warn "$(t "発行前に \$HOME/cold-keys/node.counter の現在値を確認し、新カウンター(${new_counter})が妥当か照合してください。" "Before issuing, check the current \$HOME/cold-keys/node.counter and confirm the new counter (${new_counter}) is correct.")"
+  copyblock "$(t "エアギャップで実行（コピペ用）" "Run on the air-gapped machine (copy-paste)")" \
+    "$(t "# cold-keys ロック解除" "# unlock cold-keys")" \
     "chmod u+rwx \$HOME/cold-keys" \
     "" \
-    "# 現在のカウンターを確認（任意・照合用）" \
+    "$(t "# 現在のカウンターを確認（任意・照合用）" "# check the current counter (optional, for verification)")" \
     "cat \$HOME/cold-keys/node.counter" \
     "" \
     "cd \${NODE_HOME}" \
@@ -1172,7 +1182,7 @@ _kes_step1_generate() {
     "  --kes-period ${start_kes} \\" \
     "  --out-file \${NODE_HOME}/node.cert" \
     "" \
-    "# cold-keys 再ロック" \
+    "$(t "# cold-keys 再ロック" "# re-lock cold-keys")" \
     "chmod a-rwx \$HOME/cold-keys"
 
   export _KES_VK_HASH="$kes_vkey_hash"
@@ -1180,57 +1190,57 @@ _kes_step1_generate() {
 }
 
 _kes_step2_transfer() {
-  section "STEP 2: kes.vkey / kes.skey をエアギャップへ転送"
+  section "$(t "STEP 2: kes.vkey / kes.skey をエアギャップへ転送" "STEP 2: Transfer kes.vkey / kes.skey to the air-gap")"
 
-  echo -e "  BP から USB に kes.vkey / kes.skey をコピーして、エアギャップマシンに転送してください。"
+  echo -e "  $(t "BP から USB に kes.vkey / kes.skey をコピーして、エアギャップマシンに転送してください。" "Copy kes.vkey / kes.skey from the BP to USB and move them to the air-gapped machine.")"
   echo
-  copyblock "エアギャップで実行（ハッシュ確認）" \
+  copyblock "$(t "エアギャップで実行（ハッシュ確認）" "Run on the air-gapped machine (hash check)")" \
     "sha256sum \${NODE_HOME}/kes.vkey" \
     "sha256sum \${NODE_HOME}/kes.skey"
-  echo -e "  ${FG_GRAY}BP 側のハッシュ値：${NC}"
+  echo -e "  ${FG_GRAY}$(t "BP 側のハッシュ値：" "BP-side hashes:")${NC}"
   echo -e "  ${FG_GRAY}  kes.vkey : ${_KES_VK_HASH}${NC}"
   echo -e "  ${FG_GRAY}  kes.skey : ${_KES_SK_HASH}${NC}"
   echo
 
-  press_enter "kes ファイルの転送とハッシュ確認が完了したら Enter を押してください"
+  press_enter "$(t "kes ファイルの転送とハッシュ確認が完了したら Enter を押してください" "Press Enter once the kes files are transferred and the hashes match")"
 }
 
 _kes_step3_transfer_cert() {
-  section "STEP 3: node.cert をエアギャップで生成して BP へ転送"
+  section "$(t "STEP 3: node.cert をエアギャップで生成して BP へ転送" "STEP 3: Generate node.cert on the air-gap and transfer it to the BP")"
 
-  echo -e "  STEP 1 のコマンドをエアギャップで実行してください。"
-  echo -e "  生成した node.cert を USB 経由で BP（\${NODE_HOME}/）にコピーしてください。"
+  echo -e "  $(t "STEP 1 のコマンドをエアギャップで実行してください。" "Run the STEP 1 commands on the air-gapped machine.")"
+  echo -e "  $(t "生成した node.cert を USB 経由で BP（\${NODE_HOME}/）にコピーしてください。" "Copy the resulting node.cert to the BP (\${NODE_HOME}/) via USB.")"
   echo
 
-  press_enter "node.cert の転送が完了したら Enter を押してください"
+  press_enter "$(t "node.cert の転送が完了したら Enter を押してください" "Press Enter once node.cert has been transferred")"
 
   if [[ -f "${NODE_HOME}/node.cert" ]]; then
     local cert_hash
     cert_hash=$(sha256sum "${NODE_HOME}/node.cert" | awk '{print $1}')
     echo
-    echo -e "  node.cert ハッシュ : ${cert_hash}"
-    warn "エアギャップ側と同じ値であることを確認してください"
-    press_enter "確認できたら Enter を押してください"
+    echo -e "  $(t "node.cert ハッシュ" "node.cert hash") : ${cert_hash}"
+    warn "$(t "エアギャップ側と同じ値であることを確認してください" "Confirm this matches the value on the air-gap")"
+    press_enter "$(t "確認できたら Enter を押してください" "Press Enter once confirmed")"
   fi
 }
 
 _kes_step4_restart() {
-  section "STEP 4: ノード再起動・KES 確認"
+  section "$(t "STEP 4: ノード再起動・KES 確認" "STEP 4: Restart node & verify KES")"
 
-  confirm "ノードを再起動しますか？" || return
+  confirm "$(t "ノードを再起動しますか？" "Restart the node now?")" || return
 
   local service_name
   service_name=$(systemctl list-units --type=service 2>/dev/null \
     | grep -m1 -i cardano | awk '{print $1}')
   service_name=${service_name:-cardano-node}
 
-  info "ノードを再起動中..."
+  info "$(t "ノードを再起動中..." "Restarting the node...")"
   if ! sudo systemctl restart "${service_name}" 2>/dev/null; then
-    err "ノードの再起動に失敗しました。手動で再起動してください。"
+    err "$(t "ノードの再起動に失敗しました。手動で再起動してください。" "Failed to restart the node. Please restart it manually.")"
     press_enter; return
   fi
 
-  info "KES 状態を確認中（30秒待機）..."
+  info "$(t "KES 状態を確認中（30秒待機）..." "Checking KES status (waiting 30s)...")"
   sleep 30
 
   local kes_info
@@ -1248,33 +1258,33 @@ _kes_step4_restart() {
     state_counter=$(echo "$kes_info" | jq -r '.qKesNodeStateOperationalCertificateNumber // "?"')
 
     echo
-    info "KES 期間が有効       : ${kes_interval_ok}"
-    info "ディスク上カウンター : ${disk_counter}"
-    info "ノード状態カウンター : ${state_counter}"
+    info "$(t "KES 期間が有効      " "KES interval valid ") : ${kes_interval_ok}"
+    info "$(t "ディスク上カウンター" "On-disk counter    ") : ${disk_counter}"
+    info "$(t "ノード状態カウンター" "Node-state counter ") : ${state_counter}"
 
     # 新 cert のカウンターは旧チェーン状態より 1 大きいのが正常
     if [[ "$kes_interval_ok" == "true" ]] \
        && [[ "$disk_counter" =~ ^[0-9]+$ ]] && [[ "$state_counter" =~ ^[0-9]+$ ]] \
        && [[ "$disk_counter" -ge "$state_counter" ]]; then
       kes_healthy=true
-      ok "KES 状態は正常です（期間有効・カウンター整合）"
+      ok "$(t "KES 状態は正常です（期間有効・カウンター整合）" "KES status is healthy (interval valid, counters consistent)")"
     else
-      err "KES 状態に問題がある可能性があります。設定を確認してください。"
+      err "$(t "KES 状態に問題がある可能性があります。設定を確認してください。" "KES status may be wrong. Please check your setup.")"
     fi
   else
-    err "再起動後の KES 情報を取得できませんでした。ノードのログを確認してください。"
+    err "$(t "再起動後の KES 情報を取得できませんでした。ノードのログを確認してください。" "Could not fetch KES info after restart. Check the node logs.")"
   fi
 
   echo
-  warn "カウンターがチェーンに受理され実際に forge できるか確認できるのは次のブロック生成時です。"
-  warn "それまでバックアップ（kes-bk-* / node-bk-*）は削除しないことを推奨します。"
+  warn "$(t "カウンターがチェーンに受理され実際に forge できるか確認できるのは次のブロック生成時です。" "Whether the counter is accepted on-chain and forging works can only be confirmed at the next block.")"
+  warn "$(t "それまでバックアップ（kes-bk-* / node-bk-*）は削除しないことを推奨します。" "Until then, keep the backups (kes-bk-* / node-bk-*).")"
   if [[ "$kes_healthy" == "true" ]]; then
-    confirm "それでも今すぐバックアップを削除しますか？" && {
+    confirm "$(t "それでも今すぐバックアップを削除しますか？" "Delete the backups now anyway?")" && {
       rm -f "${NODE_HOME}"/kes-bk-*.vkey "${NODE_HOME}"/kes-bk-*.skey "${NODE_HOME}"/node-bk-*.cert
-      ok "バックアップファイルを削除しました"
+      ok "$(t "バックアップファイルを削除しました" "Backup files deleted")"
     }
   else
-    info "状態が確認できていないため、バックアップは保持します。"
+    info "$(t "状態が確認できていないため、バックアップは保持します。" "Status unconfirmed, so backups are kept.")"
   fi
   press_enter
 }
@@ -1285,15 +1295,15 @@ _kes_step4_restart() {
 
 menu_pool_update() {
   clear
-  section "プール情報を更新する"
+  section "$(t "プール情報を更新する" "Update pool info")"
 
-  info "現在のプール設定を取得中..."
+  info "$(t "現在のプール設定を取得中..." "Fetching current pool settings...")"
   local pool_info
   pool_info=$(get_pool_info)
 
   if [[ -z "$pool_info" ]]; then
-    warn "Koios からプール情報を取得できませんでした"
-    info "pool.id / pool.id-bech32 が ${NODE_HOME}/ に存在するか確認してください"
+    warn "$(t "Koios からプール情報を取得できませんでした" "Could not fetch pool info from Koios")"
+    info "$(t "pool.id / pool.id-bech32 が ${NODE_HOME}/ に存在するか確認してください" "Check that pool.id / pool.id-bech32 exist in ${NODE_HOME}/")"
     press_enter; return
   fi
 
@@ -1315,7 +1325,7 @@ menu_pool_update() {
   margin_pct=$(awk "BEGIN { printf \"%.1f\", ${margin} * 100 }")
   cost_ada=$(format_ada "$cost")
 
-  echo -e "  ${FG_CYAN}── 現在のプール設定${NC}"
+  echo -e "  ${FG_CYAN}── $(t "現在のプール設定" "Current pool settings")${NC}"
   echo -e "  pledge   : ${pledge_ada} ADA"
   echo -e "  margin   : ${margin_pct} %"
   echo -e "  cost     : ${cost_ada} ADA"
@@ -1328,9 +1338,9 @@ menu_pool_update() {
   echo -e "${SEP}"
   echo
 
-  echo -e "  ${FG_WHITE}変更する番号を入力してください（複数可、例: 1 3 4）${NC}"
+  echo -e "  ${FG_WHITE}$(t "変更する番号を入力してください（複数可、例: 1 3 4）" "Enter the numbers to change (multiple allowed, e.g. 1 3 4)")${NC}"
   echo -e "  ${FG_GRAY}  1: pledge  2: margin  3: cost  4: metadata  5: extended URL${NC}"
-  echo -e "  ${FG_GRAY}  b: 戻る${NC}"
+  echo -e "  ${FG_GRAY}  $(t "b: 戻る" "b: back")${NC}"
   echo -en "  > "
   local nums
   read -r nums
@@ -1350,18 +1360,18 @@ menu_pool_update() {
   done
 
   [[ "$change_pledge" == "true" ]] && {
-    echo -en "  ${FG_WHITE}pledge（ADA）：${NC} "
+    echo -en "  ${FG_WHITE}$(t "pledge（ADA）" "pledge (ADA)")：${NC} "
     local new_pledge_ada; read -r new_pledge_ada
     pledge=$(ada_to_lovelace "$new_pledge_ada")
     pledge_ada="$new_pledge_ada"
   }
   [[ "$change_margin" == "true" ]] && {
-    echo -en "  ${FG_WHITE}margin（%、例: 3.0）：${NC} "
+    echo -en "  ${FG_WHITE}$(t "margin（%、例: 3.0）" "margin (%, e.g. 3.0)")：${NC} "
     read -r margin_pct
     margin=$(awk "BEGIN { printf \"%.6f\", ${margin_pct}/100 }")
   }
   [[ "$change_cost" == "true" ]] && {
-    echo -en "  ${FG_WHITE}cost（ADA）：${NC} "
+    echo -en "  ${FG_WHITE}$(t "cost（ADA）" "cost (ADA)")：${NC} "
     local new_cost_ada; read -r new_cost_ada
     cost=$(ada_to_lovelace "$new_cost_ada")
     cost_ada="$new_cost_ada"
@@ -1383,16 +1393,16 @@ menu_pool_update() {
     meta_hash=$(cardano-cli latest stake-pool metadata-hash \
       --pool-metadata-file "${NODE_HOME}/poolMetaData.json")
     echo "$meta_hash" > "${NODE_HOME}/poolMetaDataHash.txt"
-    ok "poolMetaData.json を生成しました（hash: ${meta_hash}）"
-    warn "poolMetaData.json をサーバーにアップロードしてください"
-    press_enter "アップロード完了後、Enter を押してください"
+    ok "$(t "poolMetaData.json を生成しました（hash: ${meta_hash}）" "Generated poolMetaData.json (hash: ${meta_hash})")"
+    warn "$(t "poolMetaData.json をサーバーにアップロードしてください" "Upload poolMetaData.json to your server")"
+    press_enter "$(t "アップロード完了後、Enter を押してください" "Press Enter once the upload is complete")"
   }
   [[ "$change_ext" == "true" ]] && {
     echo -en "  ${FG_WHITE}extended metadata URL：${NC} "; read -r ext_url
   }
 
   echo
-  echo -e "  ${FG_CYAN}── 変更後の設定（確認）${NC}"
+  echo -e "  ${FG_CYAN}── $(t "変更後の設定（確認）" "New settings (review)")${NC}"
   echo -e "  pledge   : ${pledge_ada} ADA（${pledge} lovelace）"
   echo -e "  margin   : ${margin_pct} %（${margin}）"
   echo -e "  cost     : ${cost_ada} ADA（${cost} lovelace）"
@@ -1402,7 +1412,7 @@ menu_pool_update() {
   [[ -n "$ext_url" ]] && echo -e "  extended : ${ext_url}"
   echo -e "${SEP}"
 
-  confirm "この内容で pool.cert を生成しますか？" || return
+  confirm "$(t "この内容で pool.cert を生成しますか？" "Generate pool.cert with these settings?")" || return
 
   _pool_update_trip1 "$pledge" "$margin" "$cost" "$meta_url"
   _pool_update_trip2
@@ -1411,7 +1421,7 @@ menu_pool_update() {
 _pool_update_trip1() {
   local pledge="$1" margin="$2" cost="$3" meta_url="$4"
 
-  section "TRIP 1: BP → エアギャップ（pool.cert 生成）"
+  section "$(t "TRIP 1: BP → エアギャップ（pool.cert 生成）" "TRIP 1: BP → air-gap (generate pool.cert)")"
 
   get_params
 
@@ -1420,12 +1430,12 @@ _pool_update_trip1() {
 
   local relay_ip="${RELAY1_IP:-}"
   if [[ -z "$relay_ip" ]]; then
-    echo -en "  ${FG_WHITE}リレーの IP アドレス：${NC} "
+    echo -en "  ${FG_WHITE}$(t "リレーの IP アドレス" "Relay IP address")：${NC} "
     read -r relay_ip
   fi
 
-  copyblock "エアギャップで実行（コピペ用）" \
-    "# cold-keys ロック解除" \
+  copyblock "$(t "エアギャップで実行（コピペ用）" "Run on the air-gapped machine (copy-paste)")" \
+    "$(t "# cold-keys ロック解除" "# unlock cold-keys")" \
     "chmod u+rwx \$HOME/cold-keys" \
     "" \
     "cardano-cli latest stake-pool registration-certificate \\" \
@@ -1443,23 +1453,23 @@ _pool_update_trip1() {
     "  --metadata-hash ${meta_hash} \\" \
     "  --out-file \${NODE_HOME}/pool.cert" \
     "" \
-    "# cold-keys 再ロック" \
+    "$(t "# cold-keys 再ロック" "# re-lock cold-keys")" \
     "chmod a-rwx \$HOME/cold-keys"
 
-  echo -e "  USB 経由でエアギャップへ転送するファイル："
+  echo -e "  $(t "USB 経由でエアギャップへ転送するファイル：" "Files to transfer to the air-gap via USB:")"
   echo -e "  ${FG_GRAY}  - \${NODE_HOME}/vrf.vkey${NC}"
   [[ -n "$meta_url" ]] && echo -e "  ${FG_GRAY}  - \${NODE_HOME}/poolMetaData.json${NC}"
   echo -e "  ${FG_GRAY}  - \${NODE_HOME}/params.json${NC}"
   echo
 
-  press_enter "pool.cert を生成して BP に転送したら Enter を押してください"
+  press_enter "$(t "pool.cert を生成して BP に転送したら Enter を押してください" "Press Enter once pool.cert is generated and transferred to the BP")"
 }
 
 _pool_update_trip2() {
-  section "TRIP 2: Tx 作成→エアギャップ（署名）"
+  section "$(t "TRIP 2: Tx 作成→エアギャップ（署名）" "TRIP 2: Build tx → air-gap (sign)")"
 
-  info "tx.raw を作成中です。しばらくお待ちください…"
-  info "（作成後、この tx.raw をエアギャップに貼り付けて署名します）"
+  info "$(t "tx.raw を作成中です。しばらくお待ちください…" "Building tx.raw, please wait…")"
+  info "$(t "（作成後、この tx.raw をエアギャップに貼り付けて署名します）" "(after building, paste this tx.raw on the air-gap and sign it)")"
   local result pay_balance tx_in
   result=$(get_payment_balance)
   pay_balance=$(awk '{print $1}' <<< "${result}")
@@ -1492,13 +1502,13 @@ _pool_update_trip2() {
     --invalid-hereafter ${ttl} --fee ${fee} \
     --out-file "${NODE_HOME}/tx.raw" 2>/dev/null
 
-  ok "tx.raw を生成しました"
+  ok "$(t "tx.raw を生成しました" "Built tx.raw")"
   show_txraw
   show_airgap_sign_node "tx.raw" "tx.signed"
   if tx_submit "tx.signed"; then
-    ok "プール情報を更新しました"
+    ok "$(t "プール情報を更新しました" "Pool info updated")"
   else
-    err "プール情報は更新されていません（送信に失敗）。上記エラーを確認してください。"
+    err "$(t "プール情報は更新されていません（送信に失敗）。上記エラーを確認してください。" "Pool info was NOT updated (submission failed). Check the error above.")"
   fi
   press_enter
 }
@@ -1509,9 +1519,9 @@ _pool_update_trip2() {
 
 menu_drep_delegate() {
   clear
-  section "DRep へ委任をする"
+  section "$(t "DRep へ委任をする" "Delegate to a DRep")"
 
-  info "現在の DRep 委任状況を確認中..."
+  info "$(t "現在の DRep 委任状況を確認中..." "Checking current DRep delegation...")"
   local stake_addr
   stake_addr=$(cat "${NODE_HOME}/stake.addr" 2>/dev/null || echo "")
   local drep_delegation=""
@@ -1526,51 +1536,51 @@ menu_drep_delegate() {
   echo
   local drep_display
   case "${drep_delegation}" in
-    "") drep_display="未委任" ;;
-    drep_always_abstain) drep_display="棄権（always-abstain）" ;;
-    drep_always_no_confidence) drep_display="不信任（always-no-confidence）" ;;
+    "") drep_display="$(t "未委任" "not delegated")" ;;
+    drep_always_abstain) drep_display="$(t "棄権（always-abstain）" "abstain (always-abstain)")" ;;
+    drep_always_no_confidence) drep_display="$(t "不信任（always-no-confidence）" "no-confidence (always-no-confidence)")" ;;
     *) drep_display="${drep_delegation}" ;;
   esac
-  echo -e "  現在の委任先 : ${drep_display}"
+  echo -e "  $(t "現在の委任先" "Current delegation") : ${drep_display}"
   echo -e "${SEP}"
   echo
 
-  menu_select "委任方法を選択" \
-    "[1]  DRep に委任する" \
-    "[2]  棄権する（always-abstain）" \
-    "[3]  不信任にする（always-no-confidence）" \
-    "[b]  戻る"
+  menu_select "$(t "委任方法を選択" "Choose delegation")" \
+    "[1]  $(t "DRep に委任する" "Delegate to a DRep")" \
+    "[2]  $(t "棄権する（always-abstain）" "Abstain (always-abstain)")" \
+    "[3]  $(t "不信任にする（always-no-confidence）" "No-confidence (always-no-confidence)")" \
+    "[b]  $(t "戻る" "Back")"
   local choice=$?
 
   local drep_opt=""
 
   case $choice in
     0)
-      echo -en "  ${FG_WHITE}DRep ID（drep1... / b: 戻る）：${NC} "
+      echo -en "  ${FG_WHITE}$(t "DRep ID（drep1... / b: 戻る）" "DRep ID (drep1... / b: back)")：${NC} "
       local drep_id; read -r drep_id
       [[ -z "$drep_id" || "$drep_id" == "b" || "$drep_id" == "q" ]] && return
 
-      info "DRep 情報を確認中..."
+      info "$(t "DRep 情報を確認中..." "Checking DRep info...")"
       local drep_info
       drep_info=$(get_drep_info "$drep_id")
 
       if [[ -z "$drep_info" ]]; then
-        err "DRep が見つかりませんでした: ${drep_id}"
+        err "$(t "DRep が見つかりませんでした" "DRep not found"): ${drep_id}"
         press_enter; return
       fi
 
       local drep_name
-      drep_name=$(echo "$drep_info" | jq -r '.given_name // "不明"')
+      drep_name=$(echo "$drep_info" | jq -r ".given_name // \"$(t "不明" "unknown")\"")
       echo -e "  DRep ID : ${drep_id}"
-      echo -e "  DRep 名 : ${drep_name}"
+      echo -e "  $(t "DRep 名" "DRep name") : ${drep_name}"
       echo
 
-      confirm "この DRep に委任しますか？" || return
+      confirm "$(t "この DRep に委任しますか？" "Delegate to this DRep?")" || return
       drep_opt="--drep-key-hash ${drep_id}"
       ;;
-    1) confirm "常に棄権（always-abstain）に設定しますか？" || return
+    1) confirm "$(t "常に棄権（always-abstain）に設定しますか？" "Set to always abstain (always-abstain)?")" || return
        drep_opt="--always-abstain" ;;
-    2) confirm "常に不信任（always-no-confidence）に設定しますか？" || return
+    2) confirm "$(t "常に不信任（always-no-confidence）に設定しますか？" "Set to always no-confidence (always-no-confidence)?")" || return
        drep_opt="--always-no-confidence" ;;
     99) return ;;
   esac
@@ -1582,24 +1592,24 @@ menu_drep_delegate() {
     --stake-verification-key-file "${NODE_HOME}/stake.vkey" \
     ${drep_opt} \
     --out-file "${GOVERNANCE_DIR}/drep-deleg.cert"
-  ok "drep-deleg.cert を生成しました"
+  ok "$(t "drep-deleg.cert を生成しました" "Built drep-deleg.cert")"
 
   # 古い tx を必ず削除（再署名されないまま古い署名ファイルを送信する事故を防ぐ）
   rm -f "${GOVERNANCE_DIR}/tx.raw" "${GOVERNANCE_DIR}/tx.signed" "${NODE_HOME}/tx.draft"
 
-  info "tx.raw を作成中です。しばらくお待ちください…"
-  info "（作成後、この tx.raw をエアギャップに貼り付けて署名します）"
+  info "$(t "tx.raw を作成中です。しばらくお待ちください…" "Building tx.raw, please wait…")"
+  info "$(t "（作成後、この tx.raw をエアギャップに貼り付けて署名します）" "(after building, paste this tx.raw on the air-gap and sign it)")"
   local result pay_balance tx_in
   result=$(get_payment_balance)
   pay_balance=$(awk '{print $1}' <<< "${result}")
   tx_in=$(awk '{$1=""; print $0}' <<< "${result}")
 
   if [[ -z "${tx_in// /}" || ! "$pay_balance" =~ ^[0-9]+$ || "$pay_balance" -eq 0 ]]; then
-    err "payment アドレスに利用可能な UTxO がありません（残高: ${pay_balance}）。"
-    info "ノードが同期しているか、payment.addr に資金があるか確認してください。"
+    err "$(t "payment アドレスに利用可能な UTxO がありません（残高: ${pay_balance}）。" "No usable UTxO at the payment address (balance: ${pay_balance}).")"
+    info "$(t "ノードが同期しているか、payment.addr に資金があるか確認してください。" "Check that the node is synced and payment.addr has funds.")"
     press_enter; return
   fi
-  info "使用する入力: ${tx_in# }"
+  info "$(t "使用する入力: ${tx_in# }" "Using input: ${tx_in# }")"
 
   get_params
 
@@ -1630,7 +1640,7 @@ menu_drep_delegate() {
     --out-file "${GOVERNANCE_DIR}/tx.raw" 2>&1)
 
   if [[ ! -s "${GOVERNANCE_DIR}/tx.raw" ]]; then
-    err "tx.raw のビルドに失敗しました。"
+    err "$(t "tx.raw のビルドに失敗しました。" "Failed to build tx.raw.")"
     [[ -n "$build_err" ]] && echo -e "  ${FG_GRAY}${build_err}${NC}"
     press_enter; return
   fi
@@ -1638,9 +1648,9 @@ menu_drep_delegate() {
   show_txraw "tx.raw"
   show_airgap_sign_stake "tx.raw" "tx.signed"
   if tx_submit "tx.signed"; then
-    ok "DRep 委任が完了しました"
+    ok "$(t "DRep 委任が完了しました" "DRep delegation complete")"
   else
-    err "DRep 委任は完了していません（送信に失敗）。上記エラーを確認してください。"
+    err "$(t "DRep 委任は完了していません（送信に失敗）。上記エラーを確認してください。" "DRep delegation did NOT complete (submission failed). Check the error above.")"
   fi
   press_enter
 }
@@ -1651,16 +1661,16 @@ menu_drep_delegate() {
 
 menu_governance_vote() {
   clear
-  section "ガバナンス投票をする"
+  section "$(t "ガバナンス投票をする" "Governance vote")"
 
   mkdir -p "${GOVERNANCE_DIR}"
 
-  info "SPO 投票可能なガバナンスアクションを取得中..."
+  info "$(t "SPO 投票可能なガバナンスアクションを取得中..." "Fetching governance actions an SPO can vote on...")"
   local gov_state
   gov_state=$(cardano-cli latest query gov-state ${NETWORK} 2>/dev/null || echo "")
 
   if [[ -z "$gov_state" ]]; then
-    err "ガバナンス状態を取得できません"
+    err "$(t "ガバナンス状態を取得できません" "Cannot fetch governance state")"
     press_enter; return
   fi
 
@@ -1688,7 +1698,7 @@ menu_governance_vote() {
   fi
 
   if [[ ${#action_ids[@]} -eq 0 ]]; then
-    info "現在投票可能な提案はありません"
+    info "$(t "現在投票可能な提案はありません" "No proposals available to vote on right now")"
     press_enter; return
   fi
 
@@ -1696,11 +1706,11 @@ menu_governance_vote() {
   for ((i=0; i<${#action_ids[@]}; i++)); do
     menu_items+=("[$(( i+1 ))]  ${action_types[$i]} — ${action_ids[$i]}#${action_idxs[$i]}")
   done
-  menu_items+=("[m]  ガバナンスアクション ID を手動入力")
-  menu_items+=("[b]  戻る")
+  menu_items+=("[m]  $(t "ガバナンスアクション ID を手動入力" "Enter a governance action ID manually")")
+  menu_items+=("[b]  $(t "戻る" "Back")")
 
   echo
-  menu_select "投票する提案を選択" "${menu_items[@]}"
+  menu_select "$(t "投票する提案を選択" "Choose a proposal to vote on")" "${menu_items[@]}"
   local choice=$?
 
   local action_id="" action_index="0"
@@ -1708,7 +1718,7 @@ menu_governance_vote() {
   if [[ $choice -eq 99 ]]; then
     return
   elif [[ $choice -eq $(( ${#menu_items[@]} - 2 )) ]]; then
-    echo -en "  ${FG_WHITE}Action ID（例: txhash#0 / b: 戻る）：${NC} "
+    echo -en "  ${FG_WHITE}$(t "Action ID（例: txhash#0 / b: 戻る）" "Action ID (e.g. txhash#0 / b: back)")：${NC} "
     local raw_input; read -r raw_input
     [[ -z "$raw_input" || "$raw_input" == "b" || "$raw_input" == "q" ]] && return
     if [[ "$raw_input" == *"#"* ]]; then
@@ -1717,7 +1727,7 @@ menu_governance_vote() {
     else
       action_id="$raw_input"
       action_index="0"
-      warn "インデックス指定がないため #0 とみなします。"
+      warn "$(t "インデックス指定がないため #0 とみなします。" "No index given; assuming #0.")"
     fi
   elif [[ $choice -lt ${#action_ids[@]} ]]; then
     action_id="${action_ids[$choice]}"
@@ -1726,28 +1736,28 @@ menu_governance_vote() {
     local anchor_expected="${action_hashes[$choice]}"
 
     if [[ -n "$anchor_url" ]]; then
-      info "アンカーデータを確認中..."
+      info "$(t "アンカーデータを確認中..." "Verifying anchor data...")"
       local anchor_hash
       # ipfs:// アンカーは IPFS_GATEWAY_URI が必須。未設定なら公開ゲートウェイを既定にする。
       anchor_hash=$(IPFS_GATEWAY_URI="${IPFS_GATEWAY_URI:-https://ipfs.io}" \
         cardano-cli hash anchor-data --url "$anchor_url" 2>/dev/null || echo "")
-      echo -e "  種別   : ${action_types[$choice]}"
-      echo -e "  URL    : ${anchor_url}"
+      echo -e "  $(t "種別" "Type") : ${action_types[$choice]}"
+      echo -e "  URL  : ${anchor_url}"
       if [[ -z "$anchor_hash" ]]; then
-        warn "アンカーデータを取得できませんでした（URL到達不可の可能性）"
+        warn "$(t "アンカーデータを取得できませんでした（URL到達不可の可能性）" "Could not fetch anchor data (URL may be unreachable)")"
       elif [[ "$anchor_hash" == "$anchor_expected" ]]; then
-        ok "ハッシュ検証: 一致（オンチェーン値と一致）"
+        ok "$(t "ハッシュ検証: 一致（オンチェーン値と一致）" "Hash check: match (matches the on-chain value)")"
       else
-        err "ハッシュ不一致！ 改ざんの可能性があります。"
-        echo -e "  オンチェーン : ${anchor_expected}"
-        echo -e "  実取得       : ${anchor_hash}"
-        confirm "それでも投票を続けますか？" || return
+        err "$(t "ハッシュ不一致！ 改ざんの可能性があります。" "Hash mismatch! The data may have been tampered with.")"
+        echo -e "  $(t "オンチェーン" "On-chain") : ${anchor_expected}"
+        echo -e "  $(t "実取得      " "Fetched ") : ${anchor_hash}"
+        confirm "$(t "それでも投票を続けますか？" "Vote anyway?")" || return
       fi
       echo
     fi
   fi
 
-  menu_select "投票内容を選択" "[1]  Yes" "[2]  No" "[3]  Abstain" "[b]  戻る"
+  menu_select "$(t "投票内容を選択" "Choose your vote")" "[1]  Yes" "[2]  No" "[3]  Abstain" "[b]  $(t "戻る" "Back")"
   local vote_choice=$?
 
   local vote_opt="" vote_label=""
@@ -1759,38 +1769,38 @@ menu_governance_vote() {
   esac
 
   local rationale_opts=""
-  confirm "rationale（投票理由）を添付しますか？" && {
-    echo -en "  ${FG_WHITE}rationale の URL：${NC} "
+  confirm "$(t "rationale（投票理由）を添付しますか？" "Attach a rationale (reason for the vote)?")" && {
+    echo -en "  ${FG_WHITE}$(t "rationale の URL" "Rationale URL")：${NC} "
     local rationale_url; read -r rationale_url
-    info "ハッシュを計算中..."
+    info "$(t "ハッシュを計算中..." "Computing hash...")"
     local rationale_hash
     rationale_hash=$(IPFS_GATEWAY_URI="${IPFS_GATEWAY_URI:-https://ipfs.io}" \
       cardano-cli hash anchor-data --url "$rationale_url" 2>/dev/null || echo "")
     echo -e "  URL  : ${rationale_url}"
     echo -e "  Hash : ${rationale_hash}"
     if [[ -z "$rationale_hash" ]]; then
-      warn "rationale のハッシュを取得できませんでした。rationale なしで続行します。"
+      warn "$(t "rationale のハッシュを取得できませんでした。rationale なしで続行します。" "Could not get the rationale hash; continuing without a rationale.")"
     else
       rationale_opts="--anchor-url ${rationale_url} --anchor-data-hash ${rationale_hash}"
     fi
   }
 
   echo
-  echo -e "  ${FG_CYAN}── 投票内容の確認${NC}"
-  echo -e "  提案      : ${action_id}"
-  echo -e "  投票      : ${vote_label}"
-  echo -e "  rationale : ${rationale_opts:+あり}"
-  [[ -z "$rationale_opts" ]] && echo -e "  rationale : なし"
+  echo -e "  ${FG_CYAN}── $(t "投票内容の確認" "Review your vote")${NC}"
+  echo -e "  $(t "提案     " "Proposal ") : ${action_id}"
+  echo -e "  $(t "投票     " "Vote     ") : ${vote_label}"
+  [[ -n "$rationale_opts" ]] && echo -e "  rationale : $(t "あり" "yes")"
+  [[ -z "$rationale_opts" ]] && echo -e "  rationale : $(t "なし" "no")"
   echo -e "${SEP}"
 
-  confirm "この内容で投票しますか？" || return
+  confirm "$(t "この内容で投票しますか？" "Cast this vote?")" || return
 
   # vote create はコールド検証鍵(node.vkey)を要求するため、エアギャップで実行する。
   rm -f "${GOVERNANCE_DIR}/vote.json"
 
-  section "STEP A: エアギャップで vote.json を生成"
+  section "$(t "STEP A: エアギャップで vote.json を生成" "STEP A: Generate vote.json on the air-gap")"
   local cl=()
-  cl+=("# cold-keys ロック解除")
+  cl+=("$(t "# cold-keys ロック解除" "# unlock cold-keys")")
   cl+=("chmod u+rwx \$HOME/cold-keys")
   cl+=("")
   cl+=("cardano-cli conway governance vote create \\")
@@ -1801,47 +1811,47 @@ menu_governance_vote() {
   [[ -n "$rationale_opts" ]] && cl+=("  ${rationale_opts} \\")
   cl+=("  --out-file \$HOME/vote.json")
   cl+=("")
-  cl+=("# cold-keys 再ロック")
+  cl+=("$(t "# cold-keys 再ロック" "# re-lock cold-keys")")
   cl+=("chmod a-rwx \$HOME/cold-keys")
   cl+=("")
-  cl+=("# vote.json を BP 貼り付け用のヒアドキュメント形式で表示")
+  cl+=("$(t "# vote.json を BP 貼り付け用のヒアドキュメント形式で表示" "# print vote.json as a heredoc to paste on the BP")")
   cl+=("{ echo \"cat > vote.json << EOF\"; cat \$HOME/vote.json; echo; echo EOF; }")
-  copyblock "エアギャップで実行（コピペ用）" "${cl[@]}"
+  copyblock "$(t "エアギャップで実行（コピペ用）" "Run on the air-gapped machine (copy-paste)")" "${cl[@]}"
 
   echo
-  info "上記の最後の出力（cat > vote.json << EOF … EOF）を、"
-  info "BP の ${NODE_HOME} で実行すると vote.json が作成されます。"
+  info "$(t "上記の最後の出力（cat > vote.json << EOF … EOF）を、" "Run the last output above (cat > vote.json << EOF … EOF)")"
+  info "$(t "BP の ${NODE_HOME} で実行すると vote.json が作成されます。" "in ${NODE_HOME} on the BP to create vote.json.")"
   echo
-  if confirm "代わりに ctool に直接貼り付けて取り込みますか？（heredocで作成済みなら No）"; then
+  if confirm "$(t "代わりに ctool に直接貼り付けて取り込みますか？（heredocで作成済みなら No）" "Paste it into ctool directly instead? (No if you already created it via heredoc)")"; then
     paste_signed_file "${GOVERNANCE_DIR}/vote.json" || { press_enter; return; }
   else
-    press_enter "vote.json を ${GOVERNANCE_DIR}/ に用意したら Enter を押してください"
+    press_enter "$(t "vote.json を ${GOVERNANCE_DIR}/ に用意したら Enter を押してください" "Place vote.json in ${GOVERNANCE_DIR}/ then press Enter")"
   fi
 
   if [[ ! -s "${GOVERNANCE_DIR}/vote.json" ]]; then
-    err "vote.json が取り込めていません。"
+    err "$(t "vote.json が取り込めていません。" "vote.json was not imported.")"
     press_enter; return
   fi
-  ok "vote.json を取り込みました"
+  ok "$(t "vote.json を取り込みました" "vote.json imported")"
 
-  section "STEP B: 投票 tx をビルド → エアギャップ署名 → 送信"
+  section "$(t "STEP B: 投票 tx をビルド → エアギャップ署名 → 送信" "STEP B: Build vote tx → air-gap sign → submit")"
 
   # 古い tx を必ず削除（再署名されないまま古い署名ファイルを送信する事故を防ぐ）
   rm -f "${GOVERNANCE_DIR}/tx.raw" "${GOVERNANCE_DIR}/tx.signed" "${NODE_HOME}/tx.draft"
 
-  info "tx.raw を作成中です。しばらくお待ちください…"
-  info "（作成後、この tx.raw をエアギャップに貼り付けて署名します）"
+  info "$(t "tx.raw を作成中です。しばらくお待ちください…" "Building tx.raw, please wait…")"
+  info "$(t "（作成後、この tx.raw をエアギャップに貼り付けて署名します）" "(after building, paste this tx.raw on the air-gap and sign it)")"
   local result pay_balance tx_in
   result=$(get_payment_balance)
   pay_balance=$(awk '{print $1}' <<< "${result}")
   tx_in=$(awk '{$1=""; print $0}' <<< "${result}")
 
   if [[ -z "${tx_in// /}" || ! "$pay_balance" =~ ^[0-9]+$ || "$pay_balance" -eq 0 ]]; then
-    err "payment アドレスに利用可能な UTxO がありません（残高: ${pay_balance}）。"
-    info "ノードが同期しているか、payment.addr に資金があるか確認してください。"
+    err "$(t "payment アドレスに利用可能な UTxO がありません（残高: ${pay_balance}）。" "No usable UTxO at the payment address (balance: ${pay_balance}).")"
+    info "$(t "ノードが同期しているか、payment.addr に資金があるか確認してください。" "Check that the node is synced and payment.addr has funds.")"
     press_enter; return
   fi
-  info "使用する入力: ${tx_in# }"
+  info "$(t "使用する入力: ${tx_in# }" "Using input: ${tx_in# }")"
 
   get_params
 
@@ -1872,7 +1882,7 @@ menu_governance_vote() {
     --out-file "${GOVERNANCE_DIR}/tx.raw" 2>&1)
 
   if [[ ! -s "${GOVERNANCE_DIR}/tx.raw" ]]; then
-    err "tx.raw のビルドに失敗しました。"
+    err "$(t "tx.raw のビルドに失敗しました。" "Failed to build tx.raw.")"
     [[ -n "$build_err" ]] && echo -e "  ${FG_GRAY}${build_err}${NC}"
     press_enter; return
   fi
@@ -1880,11 +1890,11 @@ menu_governance_vote() {
   show_txraw "tx.raw"
   show_airgap_sign_node "tx.raw" "tx.signed"
   if tx_submit "tx.signed"; then
-    ok "投票が完了しました"
-    echo -e "  提案 : ${action_id}"
-    echo -e "  投票 : ${vote_label}"
+    ok "$(t "投票が完了しました" "Vote submitted")"
+    echo -e "  $(t "提案" "Proposal") : ${action_id}"
+    echo -e "  $(t "投票" "Vote    ") : ${vote_label}"
   else
-    err "投票は完了していません（送信に失敗）。上記エラーを確認してください。"
+    err "$(t "投票は完了していません（送信に失敗）。上記エラーを確認してください。" "Vote was NOT cast (submission failed). Check the error above.")"
   fi
   press_enter
 }
@@ -1906,6 +1916,7 @@ main_menu() {
       "[4]  $(t "プール情報を更新する"  "Update pool info")" \
       "[5]  $(t "DRep へ委任をする"     "Delegate to DRep")" \
       "[6]  $(t "ガバナンス投票をする"  "Governance vote")" \
+      "[L]  $(t "言語: 日本語 → English" "Language: English → 日本語")" \
       "[q]  $(t "終了"                 "Quit")"
     local choice=$?
 
@@ -1916,7 +1927,8 @@ main_menu() {
       3) menu_pool_update ;;
       4) menu_drep_delegate ;;
       5) menu_governance_vote ;;
-      6|99)
+      6) [[ "$CTOOL_LANG" == "en" ]] && CTOOL_LANG="ja" || CTOOL_LANG="en" ;;
+      7|99)
         clear
         echo -e "\n  ${FG_YELLOW}☕️  $(t "またのご利用をお待ちしています。" "Thanks for using ctool. See you!")${NC}\n"
         exit 0
