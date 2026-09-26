@@ -3,14 +3,14 @@
 #  CoffeeTool (ctool) — Cardano SPO 運用ツール
 #  Copyright (c) 2026 CoffeePool
 #  License: MIT
-#  Version: 1.7.0
-#  cardano-cli 11.0.0.0 対応
+#  Version: 1.7.1
+#  cardano-cli 11.2.3.0 対応（cardano-node 11.1.2）
 # =============================================================================
 
 set -uo pipefail
 
 # --- バージョン ---------------------------------------------------------------
-TOOL_VERSION="1.7.0"
+TOOL_VERSION="1.7.1"
 
 # --- 言語設定 (i18n) ----------------------------------------------------------
 # 表示言語 ja|en。env の CTOOL_LANG で既定を指定、メニュー [L] で実行中に切替。

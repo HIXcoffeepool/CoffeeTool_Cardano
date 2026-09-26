@@ -4,7 +4,7 @@
 
 [English](#english) ・ [日本語](#日本語)
 
-Targets `cardano-cli 11.0.0.0` (Conway era). Every signing step is shown as a command to run on your **offline (air-gapped) machine**; unsigned/signed transactions move between the block producer and the air-gap by **copy-pasting `cat > file << EOF` heredocs**.
+Targets `cardano-cli 11.2.3.0` (Conway era, cardano-node 11.1.2). Every signing step is shown as a command to run on your **offline (air-gapped) machine**; unsigned/signed transactions move between the block producer and the air-gap by **copy-pasting `cat > file << EOF` heredocs**.
 
 > ⚠️ Provided **as-is** under the MIT License. It handles **mainnet funds and keys** — always test on a testnet or with small amounts first, and review every command before you run it.
 
@@ -36,7 +36,7 @@ Runs on the block-producing node; cold keys stay in `~/cold-keys/` on the air-ga
 
 ## 日本語
 
-Cardano ステークプールオペレーター（SPO）向けの運用補助ツール。**エアギャップ（コールド環境）を前提としたコールドキー運用**に対応しています。`cardano-cli 11.0.0.0`（Conway era）対応。日本語／英語の両UIに対応（`env` の `CTOOL_LANG=ja|en` で既定を指定、メニュー `[L]` で随時切替）。
+Cardano ステークプールオペレーター（SPO）向けの運用補助ツール。**エアギャップ（コールド環境）を前提としたコールドキー運用**に対応しています。`cardano-cli 11.2.3.0`（Conway era・cardano-node 11.1.2）対応。日本語／英語の両UIに対応（`env` の `CTOOL_LANG=ja|en` で既定を指定、メニュー `[L]` で随時切替）。
 
 ---
 
